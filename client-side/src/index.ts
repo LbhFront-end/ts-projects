@@ -23,8 +23,7 @@ value = 123;
 value = "abc";
 value = false;
 
-const consoleText = (text: string): void => {
-  text = "1";
+const consoleText = (): void => {
 };
 
 const errorFunc = (message: string): never => {
@@ -76,3 +75,53 @@ const getCounter = (): Counter => {
   return c;
 };
 
+function handleData(x: string): string[];
+function handleData(x: number): string;
+function handleData(x: any): any {
+  if (typeof x === "string") {
+    return x.split("");
+  }
+  return x.toString().split("").join("_");
+}
+handleData("abc").join("_");
+handleData(123);
+
+type GetArray = <T>(value: T, times: number) => T[];
+
+const getArray: GetArray = <T>(value: T, times: number = 5): T[] => {
+  return new Array(times).fill(value);
+};
+
+interface ValueWithLength {
+  length: number;
+}
+
+const getLength = <T extends ValueWithLength>(param: T): number => {
+  return param.length;
+};
+
+class Point {
+  private x: number;
+  private y: number;
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  public getPosition = () => `(${this.x},${this.y})`;
+}
+
+const point = new Point(1, 2);
+
+// tslint:disable-next-line: max-classes-per-file
+class Info {
+  private name: string;
+  private age?: number;
+  constructor(name: string, age?: number, public sex?: string) {
+    this.name = name;
+    this.age = age;
+  }
+}
+const info1 = new Info("lison");
+const info2 = new Info("lison", 18);
+const info3 = new Info("lison", 18, "man");
