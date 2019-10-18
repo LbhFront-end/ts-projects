@@ -279,3 +279,656 @@ JS的类型是灵活的，在JS中，函数是对象类型，对象可以有属�
 
 `getCounter` 函数返回类型为 `Counter` ，它是一个函数，无返回值。即返回值为 void，它还包含一个属性 `count` , 属性返回值类型是 `number` ; 
 
+## 为函数和函数参数定义类型
+
+### 函数 类型
+
+我们可以给函数定义类型，这个定义包括参数和返回值的类型定义。如果省略参数类型的话，TS会默认这个参数是 `any` 类型
+
+``` ts
+  function add(arg1:number,arg2:number):number{
+    return x + y
+  }
+```
+
+我们需要为函数赋给的变量定义完善的函数类型，即包括参数类型和返回类型。函数如果使用了函数体之外定义的变量，这个变量的类型是不体现在函数类型定义的
+
+使用接口可以清晰地定义函数类型
+
+``` ts
+  interface Add{
+    (x:number,y:number):number
+  }
+
+  let add:Add = (arg1:number,arg2:number):number => arg1 + arg2
+```
+
+可以使用类型别名来定义函数类型，使用类型别名定义函数类型更直观易读
+
+### 参数
+
+可选参数: TS 会在我们编写代码的时候就检查出调用函数时参数中存在的一些错误。接口形式定义的函数类型必选参数和可选参数的位置前后是无所谓的。但是函数参数可选参数必须放在必选参数后面，这和在 JS 中定义函数是一致的
+
+默认参数
+
+剩余参数
+
+### 函数重载
+
+函数重载是指定义几个函数名相同，但参数个数或者类型不同的函数，在调用时传入不同的参数，编译器会自动调用适合的函数
+
+JS 作为一个动态语言是没有函数重载的，只能我们自己在函数体内判断参数的个数、类型来指定不同的处理逻辑
+
+在 TS 中有函数重载的概念，但并不是定义几个同名实体函数，然后根据不同的参数个数或者类型来自动调用相对应的函数
+
+``` ts
+  function handleData(x: string): string[];
+  function handleData(x: number): string;
+  function handleData(x: any): any {
+    if (typeof x === "string") {
+      return x.split("");
+    }
+    return x.toString().split("").join("_");
+  }
+  handleData("abc").join("_");
+  handleData(123);
+```
+
+TS的函数重载是在类型系统层面的，是为了更好地进行类型推断。TS的函数重载通过一个函数指定了多个函数类型定义，从而对函数调用的返回值进行检查
+
+## 使用泛型拯救 any
+
+泛型(Generics) 是指定义函数、接口或者类的时候，不预先指定具体的类型，而是在使用的时候再指定类型的一种特性。
+
+`<T>` 符号定义了一个泛型变量， `T` 在这次函数定义中代表了某一种类型，它可以是基础类型，也可以是联合类型等高级类型
+
+定义了泛型变量之后，可以在函数中任何需要指定类型的地方使用 `T` 都代表这一种类型
+
+``` ts
+  const getArray = <T>(value: T, times: number = 5): T[] => {
+    return new Array(times).fill(value);
+  };
+```
+
+### 泛型变量
+
+当我们使用泛型的时候，必须在处理类型涉及到泛型的数据的时候，把这个数据当做任意类型来处理，这意味着不是所有类型都能做的操作不能做，不是所有类型都能调用方法不能调用
+
+### 泛型函数类型
+
+可以定义泛型函数类型，也可以使用接口的形式来定义泛型函数类型，还可以把接口中泛型变量提升到接口最外层，这样接口中所有属性和方法都能使用这个泛型变量了
+
+``` ts
+  // 使用类型别名
+  type GetArray = <T>(value: T, times: number) => T[];
+
+  const getArray: GetArray = <T>(value: T, times: number = 5): T[] => {
+    return new Array(times).fill(value);
+  };
+  
+  // 接口形式
+  interface GetArray{
+    <T>(arg:T,times:number):T[]
+  }
+  const getArray: GetArray = <T>(value: T, times: number = 5): T[] => {
+    return new Array(times).fill(value);
+  };  
+```
+
+### 使用泛型约束限制泛型变量
+
+泛型约束，当我们使用泛型时，就意味着这个类型是任意类型，但是大多数情况下，我们的逻辑是对特定类型处理的
+
+在泛型约束中使用类型参数
+
+``` ts
+  interface ValueWithLength {
+    length: number;
+  }
+
+  const getLength = <T extends ValueWithLength>(param: T): number => {
+    return param.length;
+  };
+
+  const getProp = <T, K extends keyof T>(object: T, propName: K) => {
+    return object[propName];
+  };
+  const obj1 = { a: "aa", b: "bb" };
+  getProp(obj1, "c"); // 类型“"c"”的参数不能赋给类型“"a" | "b"”的参数  
+```
+
+## TS中的类
+
+TS 中的类与ES 中的类并无差异，可以参考ES标准类
+
+``` ts
+
+  class Point {
+    private x: number;
+    private y: number;
+    constructor(x: number, y: number) {
+      this.x = x;
+      this.y = y;
+    }
+
+    public getPosition = () => `(${this.x},${this.y})` ;
+  }
+
+  const point = new Point(1, 2);
+
+  // 使用继承来复用一些特性
+  class Parent {
+    public name: string;
+    constructor(name: string) {
+      this.name = name;
+    }
+  }
+  class Child extends Parent {
+    constructor(name: string) {
+      super(name);
+    }
+  }
+```
+
+### 修饰符
+
+`public` : 默认的，表示公共的，用来指定在创建实例后可以通过实例访问的，也就是类定义的外部可以访问的属性和方法
+
+`private` : 表示私有的，它修饰的属性在类的定义外面是没法访问的
+
+``` ts
+  class Parent {
+    private age: number;
+    constructor(age: number) {
+      this.age = age;
+    }
+  }
+
+  const p = new Parent(18);
+  p.age; // error 属性“age”为私有属性，只能在类“Parent”中访问
+  Parent.age; // error 类型“typeof ParentA”上不存在属性“age”
+
+  class Child extends Parent {
+    constructor(age: number) {
+      super(age);
+      console.log(super.age); // 通过 "super" 关键字只能访问基类的公共方法和受保护方法
+    }
+  }
+```
+
+`protected` : 是受保护修饰符，修饰的成员在继承该类的子类中可以访问
+
+``` ts
+  class Parent {
+    protected age: number;
+    constructor(age: number) {
+      this.age = age;
+    }
+    protected getAge = () => this.age;
+  }
+
+  const p = new Parent(18);
+  p.age; // error 属性“age”为私有属性，只能在类“ParentA”中访问
+  Parent.age; // error 类型“typeof ParentA”上不存在属性“age”
+
+  class Child extends Parent {
+    constructor(age: number) {
+      super(age);
+      console.log(super.age);
+      console.log(super.getAge());
+    }
+  }
+
+  new Child(18);
+```
+
+`protected` 还可以用来修饰 `constructor` ，修饰之后这个类就不能用来创建实例，只能被子类继承。
+
+### readonly修饰符
+
+在类里可以使用 `readonly` 关键字将属性设置为只读。设置为只读的属性，实例只能读取这个属性值，但不能修改
+
+``` ts
+  class UserInfo {
+    readonly name: string;
+    constructor(name: string) {
+      this.name = name;
+    }
+  }
+
+  const user = new UserInfo("Lison");
+  user.name = "haha";
+```
+
+### 参数属性
+
+参数属性简单来说就是在 `constructor` 构造函数的参数前面加上访问限定符，也就是上述 `public` 、 `private` 、 `protected` 、 `readonly` 中的任意一个
+
+``` ts
+  class A {
+    constructor(name: string) { }
+  }
+
+  const aa = new A("aaa");
+  aa.name; // error 类型“A”上不存在属性“name”
+
+  class B {
+    constructor(public name: string){}
+  }
+
+  const b = new B("bbb");
+  b.name; // "bbb"
+```
+
+### 静态属性
+
+和 ES6类一样，在 TS 中一样使用 `static` 关键字 来指定属性或者方法是静态的，实例将不会添加这个静态属性，也不会继承这个静态方法。可以使用修饰符和 `static` 关键字来指定一个属性或方法
+
+``` ts
+  class Parent {
+    public static age: number = 18;
+    public static getAge() {
+      return Parent.age;
+    }
+    constructor() {
+
+    }
+  }
+
+  const p = new Parent();
+  p.age; // Property 'age' is a static member of type 'Parent'
+  Parent.age; // 18
+
+  // 使用了 private 修饰符和之前的道理一样
+  class Parent {
+    private static age: number = 18;
+    public static getAge() {
+      return Parent.age;
+    }
+    constructor() {
+
+    }
+  }
+
+  const p = new Parent();
+  p.age; // Property 'age' is a static member of type 'Parent'
+  Parent.age; // 属性“age”为私有属性，只能在类“Parent”中访问。  
+
+```
+
+### 可选类属性
+
+用 `?` 符号来标记
+
+``` ts
+
+  class Info {
+    private name: string;
+    private age?: number;
+    constructor(name: string, age?: number, public sex?: string) {
+      this.name = name;
+      this.age = age;
+    }
+  }
+  const info1 = new Info("lison");
+  const info2 = new Info("lison", 18);
+  const info3 = new Info("lison", 18, "man");
+
+```
+
+### 存取器
+
+在设置属性值的时候调用函数，和在访问属性值的时候调用的函数，用法和写法和 ES6 的没有区别
+
+``` ts
+  class UserInfo {
+    private _fullName: string;
+    constructor() { }
+    get fullName() {
+      return this._fullName;
+    }
+    set fullName(value) {
+      console.log( `setter:${value}` );
+      this._fullName = value;
+    }
+  }
+  const user = new UserInfo();
+  user.fullName = "Lison Li";
+  user.fullName;
+```
+
+### 抽象类
+
+抽象类一般用来被其他类继承，而不直接用它创建实例，抽象类和类内部定义抽象方法，使用 `abstract` 关键字。在抽象类里定义的抽象方法，在子类中是不会继承的，所以在子类中必须实现该方法的定义。abstract关键字不仅可以标记类和类里面的方法，还可以标记类中定义的属性和存取器
+
+``` ts
+  abstract class People {
+    constructor(public name: string) { }
+    abstract printName(): void;
+  }
+
+  class Man extends People {
+    constructor(name: string) {
+      super(name);
+      this.name = name;
+    }
+    printName() {
+      console.log(this.name);
+    }
+  }
+
+  const m = new Man(); // error 应有 1 个参数，但获得 0 个
+  const man = new Man("lison");
+  man.printName(); // 'lison'
+  const p = new People("lison"); // error 无法创建抽象类的实例
+```
+
+### 实例类型
+
+当我们定义一个类，并创建实例后，这个实例的类型就是创建它的类
+
+``` ts
+
+class People {
+  constructor(public name: string) {}
+}
+let p: People = new People("lison");
+
+```
+
+### 类类型接口
+
+使用接口可以强制一个类的定义必须包含某些内容，接口检测的是使用该接口定义的类创建的实例。 `implements` 关键字来指定一个类要继承的接口，如果是接口与接口、类和类直接的继承使用 `extends` ，如果是类继承接口，则用 `implements` 
+
+``` ts
+  interface FoodInterface {
+    type: string;
+  }
+
+  class FoodClass implements FoodInterface {
+    public type: string;
+    constructor(type: string) {
+      this.type = type;
+    }
+  }
+  // 或者
+  class FoodClass implements FoodInterface {
+    constructor(public type: string) {
+      this.type = type;
+    }
+  }
+```
+
+### 接口继承类
+
+接口可以继承一个类，当接口继承了该类之后，会继承类的成员，但是不包含其实现，也就是只继承成员以及成员类型。接口还会继承类的 `private` 和 `protected` 修饰的成员，当接口继承的这个类中包含这两个修饰符修饰的成员时，这个接口只可以被这个类其他的子类实现
+
+``` ts
+  class A {
+    protected name: string;
+  }
+  interface I extends A {}
+  class B implements I {} // error Property 'name' is missing in type 'B' but required in type 'I'
+  class C implements I {
+    // error 属性“name”受保护，但类型“C”并不是从“A”派生的类
+    name: string;
+  }
+  class D extends A implements I {
+    getName() {
+      return this.name;
+    }
+  }
+```
+
+### 在泛型中使用类类型
+
+``` ts
+  const create = <T>(c: { new(): T }): T => {
+    return new c();
+  };
+
+  class Info {
+    public age: number;
+  }
+
+  create(Info).age;
+  create(Info).name; // error 类型“Info”上不存在属性“name”
+```
+
+## 类型推断
+
+### 多联合类型
+
+当我们定义一个数组或者元组这种包含多个元素的值的时候，多个元素可以有不同的类型，这种 TS 会将多个类型合并起来，组成一个联合类型
+
+### 上下文类型
+
+根据左侧的类型推断右侧的一些类型
+
+## 类型兼容性
+
+TS 在实现类型强检验的同时，还要满足 JS 灵活的特点，所以就有了类型兼容性这个概念。
+
+### 函数兼容性
+
+#### 函数参数个数
+
+函数参数个数如果要兼容的话，需要满足一个要求：如果对函数y进行赋值，那么要求x中的每个参数都应在y中有对应，也就是x的参数个数小于等于y的参数个数
+
+``` ts
+ let x = (a:number)=>0;
+ let y = (b:number,c:string)=>0;
+
+ y = x; // 将 x 赋值给 y 是可以的，因为如果对函数 y 进行赋值，那么要求 x 中的每个参数都应在 y 中有对应，也就是 x 的参数个数小于等于 y 的参数个数，而至于参数名是否相同是无所谓的。
+
+ x = y; // error Type '(b: number, s: string) => number' is not assignable to type '(a: number) => number'
+```
+
+#### 函数参数类型
+
+除了参数个数，参数类型需要对应
+
+#### 剩余参数和可选参数
+
+当要被赋值的函数参数中包含剩余参数时，赋值的函数可以用任意个数参数代替，但是类型需要对应
+
+#### 函数参数双向协变
+
+即参数类型无需绝对相同
+
+``` ts
+  let funcA = function(arg:number|string):void{}
+  let funcB = function(arg:number):void{}
+
+  funcA = funcB;
+  funcB = funcA;
+```
+
+funcA 和 funcB 的参数类型并不完全一样，funcA 的参数类型为一个联合类型 number | string，而 funcB 的参数类型为 number | string 中的 number，他们两个函数也是兼容的。
+
+#### 函数返回值类型
+
+#### 函数重载
+
+带有重载的函数，要求被赋值的函数每个重载都能在用来赋值的函数上找到对应的签名
+
+``` ts
+  function merge(arg1: number, arg2: number): number;
+  function merge(arg1: string, arg2: string): string;
+  function merge(arg1: any, arg2: any) {
+    return arg1 + arg2;
+  }
+
+  function sum(arg1: number, arg2: number): number;
+  function sum(arg1: any, arg2: any) {
+    return arg1 + arg2;
+  }
+  let func = merge;
+  func = sum;// error 不能将类型“(arg1: number, arg2: number) => number”分配给类型“{ (arg1: number, arg2: number): number; (arg1: string, arg2: string): string; }”
+```
+
+### 枚举
+
+数字枚举成员类型与数字类型互相兼容。不同枚举值之间、字符串枚举成员类型和字符串类型是不兼容的
+
+### 类
+
+比较两个类类型的值的兼容性时，只比较实例的成员，类的静态成员和构造函数不进行比较。
+
+类的私有成员和受保护成员会影响兼容性。当检查类的实例的兼容性的时候，如果目标类型包含一个私有成员，那么源类型必须也包含来自同一个类的这个私有成员，这就允许子类赋值给父类
+
+### 泛型
+
+泛型包含类型参数，这个类型参数可能是任意类型，使用时类型参数会被指定为特定的类型，而这个类型只影响了类型参数的部分
+
+## 类型保护
+
+类型保护就是一些表达式，它们会在运行时检查以确保在某个作用域的类型，要定义一个类型保护，我们只需要简单定义一个函数
+
+``` ts
+  const valueList = [123, "abc"];
+  const getRandomValue = () => {
+    const number1: number = Math.random() * 10; // 这里取一个[0, 10)范围内的随机值
+    if (number1 < 5) { return valueList[0]; } // 如果随机数小于5则返回valueList里的第一个值，也就是123
+    return valueList[1]; // 否则返回"abc"
+  };
+
+  const item = getRandomValue();
+  if ((item as string).length) {
+    console.log((item as string).length);
+  } else {
+    console.log((item as number).toFixed());
+  }
+
+```
+
+### typeof 类型保护
+
+TS 中，如果是基本类型，而不是复杂的类型判断，可以直接使用 `typeof` 来做类型保护, `number` 、 `string` 、 `boolean` 、 `symbol` 
+
+### instanceof 类型保护
+
+`instanceof` 操作符是 JS 中原生的操作符，用来帕努单一个实例是否是某个构造函数创建的，或者是不是使用 ES6 语法的某个类创建的。TS 中，使用 `instanceof` 操作符统同样具有类型保护效果
+
+``` ts
+  class CreateByClass1 {
+    public age = 18;
+    constructor() { }
+  }
+
+  class CreateByClass2 {
+    public name = "lison";
+    constructor() { }
+  }
+
+  function getRandomItem() {
+    return Math.random() < 0.5 ? new CreateByClass1() : new CreateByClass2();
+  }
+
+  const item = getRandomItem();
+  if (item instanceof CreateByClass1) {
+    console.log(item.age);
+  } else {
+    console.log(item.name);
+  }
+```
+
+## 使用显式复制断言给TS一个一定会赋值的承诺
+
+### null和undefined
+
+#### 严格模式下的 null 和 undefined 赋值给其他类型值
+
+`tsconfig.json` 将 `strictNullChecks` 设为true后，就不能再将 `undefined` 和 `null` 赋值给除他们自身和 `void` 之外的任意类型值了
+
+有时候我们确实需要给一个其他类型的值设置初始值为空，然后再进行赋值，这时我们可以使用联合类型来实现 `null` 和 `undefined` 复制给其他类型
+
+``` ts
+  let strNull: string | null = "lison";
+```
+
+#### 可选参数和可选属性
+
+TS 对可选属性和对可选参数的处理一样，可选属性的类型也会被自动加上 `undefined` 
+
+``` ts
+  const sum = (x: number, y?: number) => {
+    return x + (y || 0);
+  };
+  sum(1, 2); // 3
+  sum(1); // 1
+  sum(1, undefined); // 1
+  sum(1, null); // error Argument of type 'null' is not assignable to parameter of type 'number | undefined'
+```
+
+### 显式赋值断言
+
+但开启 `strictNullChecks` 时，有些情况下编译器是无法在我们声明一些变量前知道一个值是否为 `null` 的，所以我们需要使用类型断言手动指明该值不为 `null` 
+
+``` ts
+  function getSplicedStr(num: number | null): string {
+    function getLength(prefix: string) {
+      return prefix + num!.toFixed().toString();
+    }
+    num = num || 0.1;
+    return getLength("lison");
+  }
+```
+
+上面的例子因为有嵌套函数，而编译器无法去除嵌套函数的 null（除非是立即调用的函数表达式），所以我们需要使用显式赋值断言，写法就是在不为 null 的值后面加个!
+
+## 类型别名和字面量类型-单调的类型
+
+### 类型别名
+
+类型别名就是给一种类型起个别的名字。之后只要使用这个类型的地方都可以用这个名字作为类型代替。这种只是起了一个名字，并不是创建了一个新类型
+
+使用 `type` 关键字定义类型别名
+
+``` ts
+  type TypeString = string;
+  let str: TypeString;
+  str = "string";
+```
+
+类型别名也可以使用泛型
+
+``` ts
+  type PositionType<T> = { x: T, y: T };
+  const positional: PositionType<number> = {
+    x: 1,
+    y: -1,
+  };
+  const positional2: PositionType<string> = {
+    x: "1",
+    y: "-1",
+  };
+```
+
+使用类型别名时可以在属性中引用自己
+
+### 字面量类型
+
+#### 数字字面量类型
+
+和字符串字面量类型差不多，都是指定类型为具体的值
+
+#### 字符串字面量类型
+
+字符串字面量类型其实都是字符串常量，与字符串类型不同的是他是具体的值
+
+``` ts
+  type Name = "Lison";
+  const name1: Name = "test"; // error 不能将类型“"test"”分配给类型“"Lison"”
+  const name2: Name = "Lison";
+```
+
+可以使用联合类型来使用多个字符串
+
+``` ts
+  type Direction = "north" | "east" | "south" | "west";
+  function getDirectionFirstLetter(direction: Direction) {
+    return direction.substr(0, 1);
+  }
+```
+
