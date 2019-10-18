@@ -30,7 +30,7 @@ const errorFunc = (message: string): never => {
   throw new Error(message);
 };
 
-const merge = <T, U>(arg1: T, arg2: U): T & U => {
+const merge1 = <T, U>(arg1: T, arg2: U): T & U => {
   let res = {} as T & U;
   res = Object.assign(arg1, arg2);
   return res;
@@ -113,15 +113,28 @@ class Point {
 
 const point = new Point(1, 2);
 
-// tslint:disable-next-line: max-classes-per-file
-class Info {
-  private name: string;
-  private age?: number;
-  constructor(name: string, age?: number, public sex?: string) {
-    this.name = name;
-    this.age = age;
-  }
+interface FoodInterface {
+  type: string;
 }
-const info1 = new Info("lison");
-const info2 = new Info("lison", 18);
-const info3 = new Info("lison", 18, "man");
+// tslint:disable-next-line: max-classes-per-file
+class CreateByClass1 {
+  public age = 18;
+  constructor() { }
+}
+
+// tslint:disable-next-line: max-classes-per-file
+class CreateByClass2 {
+  public name = "lison";
+  constructor() { }
+}
+
+function getRandomItem() {
+  return Math.random() < 0.5 ? new CreateByClass1() : new CreateByClass2();
+}
+
+const item = getRandomItem();
+
+type Direction = "north" | "east" | "south" | "west";
+function getDirectionFirstLetter(direction: Direction) {
+  return direction.substr(0, 1);
+}
