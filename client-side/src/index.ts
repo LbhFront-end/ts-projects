@@ -138,3 +138,38 @@ type Direction = "north" | "east" | "south" | "west";
 function getDirectionFirstLetter(direction: Direction) {
   return direction.substr(0, 1);
 }
+
+function assertNever(value: never): never {
+  throw new Error("Unexpected object：" + value);
+}
+
+interface Square {
+  kind: "square"; // 具有辨识性
+  size: number;
+}
+
+interface Rectangle {
+  kind: "rectangle"; // 具有辨识性
+  height: number;
+  width: number;
+}
+
+interface Circle {
+  kind: "circle"; // 具有辨识性
+  radius: number;
+}
+
+type Shape = Square | Rectangle | Circle;
+
+function getArea(s: Shape) {
+  switch (s.kind) {
+    case "square":
+      return s.size * s.size;
+    case "rectangle":
+      return s.height * s.width;
+    case "circle":
+      return Math.PI * s.radius ** 2;
+    default:
+      return assertNever(s);
+  }
+}
