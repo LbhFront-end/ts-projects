@@ -932,3 +932,53 @@ TS 对可选属性和对可选参数的处理一样，可选属性的类型也�
   }
 ```
 
+## 使用可辨识联合保证每个 case 都被处理
+
+### 使用 strictNullChecks
+
+我们可以使用单例类型、联合类型、类型保护和类型别名这几种类型进行合并，来创建一个叫做可辨识联合的高级类型，也可以称为标签联合或者代数数据类型
+
+可辨识联合有两个要素：具有普通的单例类型属性；一个类型别名，包含了那些类型的联合
+
+### 使用 never 类型
+
+当函数返回一个错误或者不可能有返回值的时候，返回值类型为 `never` 。所以我们可以给 switch 添加一个 default 流程，当前面的 case 不符合的时候，会执行 `default` 后的逻辑。
+
+采用这种方式，需要定义一个额外的 `assertNever` 函数，但是这种方式不仅能够在编译阶段提示我们遗漏了判断条件，而且在运行时也会报错
+
+``` ts
+  function assertNever(value: never): never {
+    throw new Error("Unexpected object：" + value);
+  }
+
+  interface Square {
+    kind: "square"; // 具有辨识性
+    size: number;
+  }
+
+  interface Rectangle {
+    kind: "rectangle"; // 具有辨识性
+    height: number;
+    width: number;
+  }
+
+  interface Circle {
+    kind: "circle"; // 具有辨识性
+    radius: number;
+  }
+
+  type Shape = Square | Rectangle | Circle;
+
+  function getArea(s: Shape) {
+    switch (s.kind) {
+      case "square":
+        return s.size * s.size;
+      case "rectangle":
+        return s.height * s.width;
+      case "circle":
+        return Math.PI * s.radius ** 2;
+      default:
+        return assertNever(s);
+    }
+  }
+```
