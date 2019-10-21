@@ -496,7 +496,7 @@ TS 中的类与ES 中的类并无差异，可以参考ES标准类
     }
   }
 
-  const user = new UserInfo("Lison");
+  const user = new UserInfo("laibh");
   user.name = "haha";
 ```
 
@@ -570,9 +570,9 @@ TS 中的类与ES 中的类并无差异，可以参考ES标准类
       this.age = age;
     }
   }
-  const info1 = new Info("lison");
-  const info2 = new Info("lison", 18);
-  const info3 = new Info("lison", 18, "man");
+  const info1 = new Info("laibh");
+  const info2 = new Info("laibh", 18);
+  const info3 = new Info("laibh", 18, "man");
 
 ```
 
@@ -593,7 +593,7 @@ TS 中的类与ES 中的类并无差异，可以参考ES标准类
     }
   }
   const user = new UserInfo();
-  user.fullName = "Lison Li";
+  user.fullName = "laibh Li";
   user.fullName;
 ```
 
@@ -618,9 +618,9 @@ TS 中的类与ES 中的类并无差异，可以参考ES标准类
   }
 
   const m = new Man(); // error 应有 1 个参数，但获得 0 个
-  const man = new Man("lison");
-  man.printName(); // 'lison'
-  const p = new People("lison"); // error 无法创建抽象类的实例
+  const man = new Man("laibh");
+  man.printName(); // 'laibh'
+  const p = new People("laibh"); // error 无法创建抽象类的实例
 ```
 
 ### 实例类型
@@ -632,7 +632,7 @@ TS 中的类与ES 中的类并无差异，可以参考ES标准类
 class People {
   constructor(public name: string) {}
 }
-let p: People = new People("lison");
+let p: People = new People("laibh");
 
 ```
 
@@ -817,7 +817,7 @@ TS 中，如果是基本类型，而不是复杂的类型判断，可以直接�
   }
 
   class CreateByClass2 {
-    public name = "lison";
+    public name = "laibh";
     constructor() { }
   }
 
@@ -844,7 +844,7 @@ TS 中，如果是基本类型，而不是复杂的类型判断，可以直接�
 有时候我们确实需要给一个其他类型的值设置初始值为空，然后再进行赋值，这时我们可以使用联合类型来实现 `null` 和 `undefined` 复制给其他类型
 
 ``` ts
-  let strNull: string | null = "lison";
+  let strNull: string | null = "laibh";
 ```
 
 #### 可选参数和可选属性
@@ -871,7 +871,7 @@ TS 对可选属性和对可选参数的处理一样，可选属性的类型也�
       return prefix + num!.toFixed().toString();
     }
     num = num || 0.1;
-    return getLength("lison");
+    return getLength("laibh");
   }
 ```
 
@@ -918,9 +918,9 @@ TS 对可选属性和对可选参数的处理一样，可选属性的类型也�
 字符串字面量类型其实都是字符串常量，与字符串类型不同的是他是具体的值
 
 ``` ts
-  type Name = "Lison";
-  const name1: Name = "test"; // error 不能将类型“"test"”分配给类型“"Lison"”
-  const name2: Name = "Lison";
+  type Name = "laibh";
+  const name1: Name = "test"; // error 不能将类型“"test"”分配给类型“"laibh"”
+  const name2: Name = "laibh";
 ```
 
 可以使用联合类型来使用多个字符串
@@ -982,3 +982,396 @@ TS 对可选属性和对可选参数的处理一样，可选属性的类型也�
     }
   }
 ```
+
+## this的类型
+
+JS 中，this 可以用来获取对全局对象、类实例对象、构建函数实例等的引用，在TS 中，this 也是一种类型
+
+计算器 Counter 的例子：
+
+``` javascript
+  class Counter {
+      constructor(public count: number = 0) {}
+      add(value: number) { // 定义一个相加操作的方法
+          this.count += value;
+          return this;
+      }
+      subtract(value: number) { // 定义一个相减操作的方法
+          this.count -= value;
+          return this;
+      }
+  }
+  let counter = new Counter(10);
+  console.log(counter.count); // 10
+  counter.add(5).subtract(2);
+  console.log(counter.count); // 13
+```
+
+给 Counter 类定义几个方法，每个方法都返回 this，这个 this 即指向实例，这样我们就可以通过链式调用的形式来使用这些方法。要通过类继承的形式丰富这个 Counter 类，添加一些方法，依然返回 this，然后采用链式调用的形式调用，在过去版本的 TypeScript 中是有问题的，继承的逻辑：
+
+``` ts
+  class PowCounter extends Counter {
+    constructor(public count: number = 0) {
+      super(count);
+    }
+    pow(value: number) { // 定义一个幂运算操作的方法
+      this.count = this.count ** value;
+      return this;
+    }
+  }
+  let powcounter = new PowCounter(2);
+  powCounter
+    .pow(3)
+    .subtract(3)
+    .add(1);
+  console.log(powCounter.count); // 6
+```
+
+我们使用 PowCounter 创建了实例 powcounter，它的类型自然是 PowCounter，在该实例上调用继承来的 subtract 和 add 方法。如果是在过去，就会报错，因为创建实例 powcounter 的类 PowCounter 没有定义这两个方法，所以会报没有这两个方法的错误。但是在 1.7 版本中增加了 this 类型，TypeScript 会对方法返回的 this 进行判断，就不会报错了。
+
+对于对象来说。对象的属性值可以是一个函数，那么这个函数被也称为方法，在方法中访问 this ，默认情况下是对这个对象的引用，this 类型也就是这个对象的字面量类型
+
+``` ts
+  let info = {
+    name: "laibh",
+    getName(this: { age: number }) {
+      this; // 这里的this的类型是{ age: number }
+    }
+  };
+```
+
+`tsconfig.json` 里将 `noImplicitThis` 设为 true，这时候有两种不同的情况
+
+ (1) 对象字面量具有 `ThisType<T>` 指定的类型，此时 this 的类型为 T，来看例子：
+
+``` ts
+  type ObjectDescriptor<D, M> = {
+    data?: D;
+    // ThisType是一个内置的接口，用来在对象字面量中键入this，这里指定this的类型为D & M  
+    methods?: M & ThisType<D & M>;
+  };
+
+  function makeObject<D, M>(desc: ObjectDescriptor<D, M>): D & M {
+    const data: object = desc.data || {};
+    const methods: object = desc.methods || {};
+    // 这里通过...操作符，将data和methods里的所有属性、方法都放到了同一个对象里返回，这个对象的类型自然就      是D & M，因为他同时包含D和M两个类型的字段  
+    return { ...data, ...methods } as D & M;
+  }
+
+  let obj1 = makeObject({
+    data: { x: 0, y: 0 }, // 这里data的类型就是我们上面定义ObjectDescriptor<D, M>类型中的D
+    // 这里methods的类型就是我们上面定义ObjectDescriptor<D, M>类型中的M
+    methods: {
+      moveBy(dx: number, dy: number) {
+        this.x += dx; // 所以这里的this是我们通过ThisType<D & M>指定的，this的类型就是D & M
+        this.y += dy;
+      },
+    },
+  });
+
+  obj.x = 10;
+  obj.y = 20;
+  obj.moveBy(5, 5);
+
+ ```
+
+(2) 不包含 `ThisType<T>` 指定的上下文类型，那么此时 this 具有上下文类型，也就是普通的情况。
+
+## 索引类型：获取索引类型和索引值类型
+
+### 索引类型查询操作符
+
+`keyof` 操作符，连接一个类型，会返回一个由这个类型的所有属性名组成的联合类型。
+
+``` ts
+  interface Info {
+    name: string;
+    age: number;
+  }
+  let infoProp: keyof Info;
+  infoProp = "name";
+  infoProp = "age";
+  infoProp = "no"; // error 不能将类型“"no"”分配给类型“"name" | "age"”
+```
+
+通过和泛型结合使用，TS 就可以检查使用了动态属性名
+
+``` ts
+  function getValue<T, K extends keyof T>(obj: T, names: K[]): T[K][] { // 这里使用泛型，并且约束泛型变量K的类型是"keyof T"，也就是类型T的所有字段名组成的联合类型
+    return names.map(n => obj[n]); // 指定getValue的返回值类型为T[K][]，即类型为T的值的属性值组成的数组
+  }
+  const info = {
+    name: "laibh",
+    age: 18
+  };
+  let values: string[] = getValue(info, ["name"]);
+  values = getValue(info, ["age"]); // error 不能将类型“number[]”分配给类型“string[]”
+```
+
+### 索引访问操作符
+
+索引访问操作符也就是 `[]` ，和访问对象的某个属性值是一样的语法，在 TS 中可以用来访问某个属性的类型。
+
+``` ts
+  type NameType = Info["name"];
+  let name: NameType = 123; // error 不能将类型“123”分配给类型“string”
+
+  function getProperty<T, K extends keyof T>(o: T, name: K): T[K] {
+    return o[name]; // o[name] is of type T[K]
+  }
+
+  interface Obj<T> {
+    [key: number]: T;
+  }
+  const key: keyof Obj<number>; // keys的类型为number  
+```
+
+也可以使用访问操作符，获取索引签名类型。
+
+``` ts
+  interface Obj<T> {
+    [key: string]: T;
+  }
+  const obj: Obj<number> = {
+    age: 18
+  };
+  let value: Obj<number>["age"]; // value的类型是number，也就是name的属性值18的类型
+```
+
+通过索引访问操作符和索引类型查询操作符可以选出类型不为 `never` & `undefined` & `null` 的类型
+
+``` ts
+  interface Type {
+    a: never;
+    b: never;
+    c: string;
+    d: number;
+    e: undefined;
+    f: null;
+    g: object;
+  }
+  type test = Type[keyof Type];
+  // test的类型是string | number | object
+```
+
+## 使用映射类型得到新的类型
+
+### 映射类型
+
+TS 提供了借助旧类型创建一个新类型的方式，也就是映射类型，可以以相同的形式去转换旧类型中的每个属性。
+
+我们已有一个接口实现了一个有且只有一个 age 属性的对象，但是我们如果想要创建一个只读版本的同款对象，我们可能需要再重新定义一个接口，然后让 age 属性 readonly。如果接口这么简单，确实可以这么做。但是如果属性变多了，而且这个结构以后变化了，那可以用映射类型
+
+``` ts
+  interface Info {
+    age: number;
+  }
+
+  type ReadonlyType<T> = { readonly [P in keyof T]: T[P] };
+  type ReadonlyInfo = ReadonlyType<Info>;
+  let info: ReadonlyInfo = {
+    age: 18,
+  };
+  info.age = 28; // error Cannot assign to 'age' because it is a constant or a read-only property
+```
+
+上述的过程有点像定义了一个函数，函数会遍历传入对象的每个属性并做处理。同理也可以创建一个每个属性都是可选属性的接口
+
+``` ts
+  interface Info {
+    age: number;
+  }
+
+  type ReadonlyType<T> = {
+    readonly [P in keyof T]?T[P]
+  };
+
+  type ReadonlyInfo = ReadonlyType<Info>;
+  let info: ReadonlyInfo = {};
+```
+
+这里用到了一个新的操作符 `in` ，TS 内部使用了 `for...in` ，定义映射类型，这里涉及到三个部分：类型变量，也就是上例的 P, 就像是 `for...in` 循环中定义的变量，用来在每次遍历中绑定当前遍历到的属性名。属性名联合，也就是 `keyof T` , 它返回对象 T 的属性名联合，属性的结果类型也就是 `T[P]` .
+
+TS 内置了上述两种映射类型，无需定义就可以使用，它们分别是 `Readonly` 和 `Partial` , 还有两个内置类型是 `Pick` 和 `Record` 
+
+它们的实现分别是：
+
+``` ts
+  // 用来返回一个对象中指定字段的值组成的对象
+  type Pick<T, K extends keyof T> = { [P in K]: T[P] }
+
+  // 将一个对象中的每一个属性转换为其他值
+  type Record<K extends keyof any, T> = { [P in K]: T }
+
+  // 示例
+  function pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+    const res = {} as Pick<T, K>;
+    keys.forEach(key => res[key] = obj[key]);
+    return res;
+  }
+
+  const nameAndAddress = pick(info,["name","address"]); // { name: 'lison', address: 'beijing' }
+
+  function mapObject<K extends string | number, T, U>(obj: Record<K, T>, f: (x: T) => U): Record<K, U> {
+    let res = {} as Record<K, U>;
+    for (const key in obj) {
+      res[key] = f(obj[key])
+    }
+    return res;
+  }  
+  const names = { 0: "hello", 1: "world", 2: "bye" };
+  const lengths = mapObject(names, s => s.length); // { 0: 5, 1: 5, 2: 3 }  
+
+```
+
+### 同态
+
+两个相同类型的代数结构之间的结构保持映射。四个内置映射类型中， `Readonly` 、 `Partial` 、 `Pick` 是同态的， `Record` 不是，因为 `Record` 映射出的对象属性值是新的，和输入的值的属性值是不同的。
+
+### 由映射类型进行推断
+
+学习了使用映射类型包装一个类型的属性后，也可以进行逆向操作，也就是拆包，先看看包装操作
+
+``` ts
+  type Proxy<T> = { // 这里定义一个映射类型，他将一个属性拆分成get/set方法
+    get(): T;
+    set(value: T): void;
+  };
+  type Proxify<T> = { [P in keyof T]: Proxy<T[P]> }; // 这里再定义一个映射类型，将一个对象的所有属性值类型都变为Proxy<T>处理之后的类型
+  function proxify<T>(obj: T): Proxify<T> { // 这里定义一个proxify函数，用来将对象中所有属性的属性值改为一个包含get和set方法的对象
+    let result = {} as Proxify<T>;
+    for (const key in obj) {
+      result[key] = {
+        get: () => obj[key],
+        set: value => (obj[key] = value)
+      };
+    }
+    return result;
+  }
+  let props = {
+    name: "lison",
+    age: 18
+  };
+  let proxyProps = proxify(props);
+  console.log(proxyProps.name.get()); // "lison"
+  proxyProps.name.set("li");
+```
+
+上面的例子定义了一个函数，这个函数可以把传入的对象的每个属性替换为一个包含 get 和 set 的两个方法对象。获取某个值的时候，比如 name，就使用 proxyProps.name.get()方法获取它的值，使用 proxyProps.name.set()方法修改 name 的值。
+
+拆包：
+
+``` ts
+  function unproxify<T>(t: Proxify<T>): T { // 这里我们定义一个拆包函数，其实就是利用每个属性的get方法获取到当前属性值，然后将原本是包含get和set方法的对象改为这个属性值
+    let result = {} as T;
+    for (const k in t) {
+      result[k] = t[k].get(); // 这里通过调用属性值这个对象的get方法获取到属性值，然后赋给这个属性，替换掉这个对象
+    }
+    return result;
+  }
+  let originalProps = unproxify(proxyProps);
+```
+
+### 增加或移除特定修饰符
+
+使用 `+` 或者 `-` 符号作为前缀来指定增加还是删除修饰符。通过映射类型为一个接口的每个属性增加修饰符
+
+增加修饰符
+
+``` ts
+  interface Info{
+    name:string;
+    age:number;
+  }
+
+  type ReadonlyInfo<T> = { +readonly [P in keyof T]+?:T[P] }
+
+  let info:ReadonlyInfo<Info> = {
+    name:"lison"
+  }
+  info.name = ""; // Cannot assign to 'name' because it is a read-only property
+```
+
+上述例子中， `ReadonlyInfo` 创建的接口类型的属性是可选的，所以我们在定义的时候没有写 age 属性也是可以的。同时每个属性是只读的，所以我们修改 name 的值的时候报错。通过 `+` 前缀增加了 `readonly` 和 `?` 修饰符。当然，增加的时候这个 `+` 前缀是可以省略的
+
+移除修饰符
+
+``` ts
+  interface Info {
+    name: string;
+    age: number;
+  }
+  type RemoveModifier<T> = { -readonly [P in keyof T]-?: T[p] };
+  type InfoType = RemoveModifier<Readonly<Partial<Info>>>;
+  let info1: InfoType = {
+    // error missing "age"
+    name: "lison"
+  };
+  let info2: InfoType = {
+    name: "lison",
+    age: 18
+  };
+  info2.name = ""; // right, can edit
+```
+
+定义了去掉修饰符的映射类型 `RemoveModifier` ， `Readonly<Partial<Info>>` 则是返回一个既属性可选又只读的接口类型，所以 `InfoType` 类型则表示属性必含而且非只读
+
+TS 内置了一个映射类型 `Required<T>` , 使用它可以去掉 T 所有属性的 `?` 修饰符
+
+### keyof 和 映射类型的升级
+
+`keyof` 和 映射类型支持用 `number` 或者 `symbol` 命名的属性
+
+``` ts
+  const stringIndex = "a";
+  const numberIndex = 1;
+  const symbolIndex = Symbol();
+  type Obj = {
+    [stringIndex]: string;
+    [numberIndex]: number;
+    [symbolIndex]: symbol;
+  };
+  type keys = keyof Obj;
+  let key: keys = 2; // error
+  let key: keys = 1; // right
+  let key: keys = "b"; // error
+  let key: keys = "a"; // right
+  let key: keys = Symbol(); // error
+  let key: keys = symbolIndex; // right
+
+  type ReadonlyType<T> = {
+    readonly [P in T] ?: T[P]
+  }
+
+  let obj: ReadonlyType<Obj> = {
+    a: "aa",
+    1: 11,
+    [symbolIndex]: Symbol()
+  }
+
+  obj.a = "bb"; // error Cannot assign to 'a' because it is a read-only property
+  obj[1] = 22; // error Cannot assign to '1' because it is a read-only property
+  obj[symbolIndex] = Symbol(); // error Cannot assign to '[symbolIndex]' because it is a read-only property  
+```
+
+### 元组和数组上的映射类型
+
+在元组和数组上的映射会生成新的元组和数组，并不会创建一个新的类型，这个类型上会具有 `push`、`pop`等数组的方法和数组属性
+
+```ts
+  type MapToPromise<T> = {
+    [K in keyof T]: Promise<T[K]>
+  };
+
+  type Tuple = [number, string, boolean];
+  type promiseTuple = MapToPromise<Tuple>;
+
+  let tuple: promiseTuple = [
+    new Promise((resolve, reject) => resolve(1)),
+    new Promise((resolve, reject) => resolve("a")),
+    new Promise((resolve, reject) => resolve(false)),
+  ]
+
+```
+
+定义了一个MapToPromise映射类型。它返回一个将传入的类型的所有字段的值转为Promise，且Promise的resolve回调函数的参数类型为这个字段类型。我们定义了一个元组Tuple，元素类型分别为number、string和boolean，使用MapToPromise映射类型将这个元组类型传入，并且返回一个promiseTuple类型。当我们指定变量tuple的类型为promiseTuple后，它的三个元素类型都是一个Promise，且resolve的参数类型依次为number、string和boolean。
