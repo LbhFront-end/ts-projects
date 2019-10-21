@@ -173,3 +173,59 @@ function getArea(s: Shape) {
       return assertNever(s);
   }
 }
+
+// tslint:disable-next-line: max-classes-per-file
+class Counter {
+  constructor(public count: number = 0) { }
+  public add(value1: number) {
+    this.count += value1;
+    return this;
+  }
+  public subtract(value2: number) {
+    this.count -= value2;
+    return this;
+  }
+}
+
+let counter = new Counter(10);
+
+// let info = {
+//   name: "Lison",
+//   getName(this: { age: number }) {
+//     this;
+//   }
+// }
+
+type ObjectDescriptor<D, M> = {
+  data?: D;
+  methods?: M & ThisType<D & M>;
+};
+
+function makeObject<D, M>(desc: ObjectDescriptor<D, M>): D & M {
+  const data: object = desc.data || {};
+  const methods: object = desc.methods || {};
+
+  return { ...data, ...methods } as D & M;
+}
+
+let obj1 = makeObject({
+  data: { x: 0, y: 0 },
+  methods: {
+    moveBy(dx: number, dy: number) {
+      this.x += dx;
+      this.y += dy;
+    },
+  },
+});
+
+interface Go {
+  name: string;
+  age: number;
+  address: string;
+}
+
+const go: Go = {
+  address: "foshan",
+  age: 18,
+  name: "laibh",
+}
