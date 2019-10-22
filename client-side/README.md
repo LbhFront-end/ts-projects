@@ -1073,7 +1073,7 @@ JS 中，this 可以用来获取对全局对象、类实例对象、构建函数
   obj.y = 20;
   obj.moveBy(5, 5);
 
- ```
+```
 
 (2) 不包含 `ThisType<T>` 指定的上下文类型，那么此时 this 具有上下文类型，也就是普通的情况。
 
@@ -1356,9 +1356,9 @@ TS 内置了一个映射类型 `Required<T>` , 使用它可以去掉 T 所有属
 
 ### 元组和数组上的映射类型
 
-在元组和数组上的映射会生成新的元组和数组，并不会创建一个新的类型，这个类型上会具有 `push`、`pop`等数组的方法和数组属性
+在元组和数组上的映射会生成新的元组和数组，并不会创建一个新的类型，这个类型上会具有 `push` 、 `pop` 等数组的方法和数组属性
 
-```ts
+``` ts
   type MapToPromise<T> = {
     [K in keyof T]: Promise<T[K]>
   };
@@ -1375,3 +1375,1035 @@ TS 内置了一个映射类型 `Required<T>` , 使用它可以去掉 T 所有属
 ```
 
 定义了一个MapToPromise映射类型。它返回一个将传入的类型的所有字段的值转为Promise，且Promise的resolve回调函数的参数类型为这个字段类型。我们定义了一个元组Tuple，元素类型分别为number、string和boolean，使用MapToPromise映射类型将这个元组类型传入，并且返回一个promiseTuple类型。当我们指定变量tuple的类型为promiseTuple后，它的三个元素类型都是一个Promise，且resolve的参数类型依次为number、string和boolean。
+
+## unknown 类型
+
+任何类型的值都可以赋值给 `unknown` 类型
+
+``` ts
+let value1: unknown;
+value1 = "a";
+value1 = 123;
+```
+
+如果没有类型断言或基于控制流的类型细化时 `unknown` 不可以赋值给其他类型，此时它只能赋值给 `unknown` 和 `any` 类型
+
+``` ts
+let value2: unknown;
+let value3: string = value2; // 不能将类型“unknown”分配给类型“string”
+value1 = value2;
+```
+
+如果没有类型断言或基于控制流的类型细化，则不能在它上面进行任何操作
+
+``` ts
+let value4: unknown;
+value4 += 1; // 对象的类型为 "unknown"
+```
+
+`unknown` 与任何与其他类型组成的交叉类型，最后都等于其他类型
+
+``` ts
+type type1 = unknown & string; // type1 => string
+type type2 = number & unknown; // type2 => number
+type type3 = unknown & unknown; // type3 => unknown
+type type4 = unknown & string[]; // type4 => string[]
+```
+
+`unknown` 与任何其他类型组成的联合类型都等于 `unknown` 类型，只有 `any` 例外， `unknown` 与 `any` 组成的联合类型等于 `any` 
+
+``` ts
+type type5 = string | unknown; // type5 => unknown
+type type6 = string | any; // type6 => any
+type type7 = number[] | unknown; // type7 => unknown
+```
+
+`never` 类型是 `unknown` 的子类型
+
+``` ts
+type type8 = never extends unknown ? true : false; // type8 => true
+```
+
+`keyof unknown` 等于类型 `never` 
+
+``` ts
+type type9 = keyof unknown; // type9 => nwver
+```
+
+只能对 `unknown` 进行等或不等操作，不能进行其他操作
+
+``` ts
+value1 === value2;
+value1 !== value2;
+value1 += value2; // error
+```
+
+`unknown` 类型的值不能访问其属性，作为函数调用和作为类创建实例
+
+``` ts
+let value5: unknown;
+value5.age; // error
+valu5(); // error
+new value5(); // error
+```
+
+使用映射类型时如果遍历的是 `unknown` 类型，则不会映射任何属性
+
+``` ts
+type Types<T> = {
+  [P in keyof T]: number
+}
+
+type type10 = Types<any>; // type10 = {[x:string]:number}
+type type11 = Types<unknown>; // type10 => {}
+```
+
+## 条件类型
+
+条件类型从语法上看像是三元操作符，他从一个条件表达式进行类型检测， 然后在后面两种类型中选择一个
+
+``` ts
+// 如果 T 可以赋值给 U 类型，则是 X 类型，否则是 Y 类型
+T extends U ? X : Y
+
+type Type<T> = T extends string | number
+let index:Type<"a"> // index 类型为 string
+let index:Type<false> // index 类型为 number
+```
+
+### 分布式条件类型
+
+当待检测的类型是联合类型，则该条件类型被称为分布式条件类型，在实例化时会自动分发成联合类型
+
+``` ts
+type TypeName<T> = T extends string
+  ? string
+  : T extends number
+  ? number
+  : T extends boolean
+  ? boolean
+  : T extends undefined
+  ? undefined
+  : T extends () => void
+  ? () => void
+  : object;
+
+type Type1 = TypeName<() => void>; // Type1 的类型是 Function
+type Type2 = TypeName<string[]>; // Type2 的类型是 object
+type Type3 = TypeName<() => void | string[]>; // Type3 的类型是 object | Function
+
+type Diff<T,U> = T extends U ? never : T;
+type Test = Diff<string|number|boolean,undefined|number>; // Test 的类型为 string | boolean
+// Diff 条件类型的作用就是从 T 中找出 U 中存在的类型，得到剩下的类型，这个类型内置在 TS 中，叫做 Exclude
+```
+
+条件类型和映射类型结合的例子
+
+``` ts
+type Type<T> = {
+  [K in keyof T]: T[K] extends Function ? K : never
+}[keyof T]
+
+interface Part {
+  id: number;
+  name: string;
+  subparts: Part[];
+  updatePart(newName: string): void;
+}
+
+type Test = Type<Part>; // Test 的类型为 "updatePart"
+```
+
+接口 `Part` 有四个字段，其中 `updatePart` 的值是函数，也就是 `Function` 类型。 `Types` 的定义中，涉及到映射类型、条件类型、索引访问类型和索引类型。首先 `[K in keyof T]` 用于遍历 T 的所有属性名，只使用了条件类型， `T[K]` 是当前属性名的属性值， `T[K] extends Funtion ? K : never` 表示如果属性值为 `Function` 类型，则值为属性名字面量类型，否则为 `never` 类型。接下来使用 `keyof T` 获取 `T` 的属性名，最后通过索引访问类型 `[keyof T]` 获取不为 `never` 的类型
+
+### 条件类型的类型推断-infer 
+
+条件类型提供一个 `infer` 关键字来推断类型，如果想要定义一个条件类型，传入的类型是一个数组，则返回它元素的类型，如果是一个普通类型，则直接返回这个类型
+
+``` ts
+// 不使用 infer
+type Type<T> = T extends any[] ? T[number]:T;
+type test = Type<string[]>; // test 的类型是 string
+type test2 = Type<string>; // test2 的类型是 string
+
+// 使用 infer
+type Type<T> = T extends Array<infer U> ?U : T;
+type test = Type<string[]>; // test 的类型是 string
+type test2 = Type<string>; // test2 的类型是 string
+// infer 可以推断出 U 的类型，并且供后面使用，可以理解为这里定义了一个变量 U 来接受数组元素的类型
+```
+
+### TS 预定义条件类型
+
+`Exclude<T,U>` , 从 T 中去掉可以赋值给 U 的类型
+
+``` ts
+type Type = Exclude<"a"|"b"|"c","a"|"b"> // Type => "c"
+type Type2 = Exclude<string|number|boolean,string | number> // Type2 => boolean
+```
+
+`Extract<T,U>` , 选取 T 中可以赋值给 U 的类型
+
+``` ts
+type Type = Extract<"a"|"b"|"c","a"|"b"|"f"> // Type => "a"|"b"
+type Type2 = Extract<string|number|boolean,string | number> //Type2=>string|number
+```
+
+`NonNullable` , 从 T 中去掉 `null` 和 `undefined` 
+
+``` ts
+type Type = NonNullable<string|number|undefined|null> // Type => string|number
+```
+
+`ReturnType` , 获取函数类型返回值类型
+
+``` ts
+type Type = ReturnType<()=>string> // Type => string
+type Type2 = ReturnType<(arg:number)=>void> // Type2=> void
+```
+
+`InstanceType` , 获取函数类型的实例类型
+
+实现:
+
+``` ts
+type InstanceType<T extends new (...args: any[]) => any> = T extends new (...args: any[]) => infer R ? R : any
+```
+
+`InstanceType` 条件类型要求泛型变量 T 类型是创建 `any` 类型的构造函数，而它本省通过判断 `T` 是否是 构造函数类型来确定返回的类型。如果是构造函数，使用 `infer` 可以自动推断出 R 的 类型，即实例类型，否则是 `any` 类型。
+
+使用：
+
+``` ts
+class A{
+  constructor(){}
+}
+type T1 = InstanceType<typeof A>; // T1 的类型为 A
+type T2 = InstanceType<any>; // T1 的类型为 any
+type T3 = InstanceType<never>; // T1 的类型为 never
+type T4 = InstanceType<string>; // T1 的类型为 error
+
+```
+
+上面例子中，T1 的定义中， `typeof A` 返回的的是类 A 的类型，也就是 A，这里不能使用 A 因为它是值不是类型，类型 A 是构造函数，所以 T1 是 A 构造函数的实例类型，也就是 A；T2 传入的类型为 `any` ，因为 `any` 是任何类型的子类型，所以它满足 `T extends new (…args: any[]) => infer R` ，这里 `infer` 推断的 R 为 `any` ；传入 `never` 和 `any` 同理。传入 `string` 时因为 `string` 不能不给构造函数类型，所以报错。
+
+## 装饰器
+
+TS 中的装饰器，是一项实验性特性，未来可能会有改变，如果要使用装饰器，需要在 `tsconfig.json` 的编译器中开启 `experimentalDecorators` ，将它设为 true
+
+### 定义
+
+装饰器是一种新的声明，能够用于类声明、方法、访问符、属性和参数上。使用 `@` 符合加一个名字来定义，如 `@decorat` ，这的 `decorat` 必须是一个函数或者求值后是一个函数，这个 `decorat` 不是写死的，是自己定义的，这个函数在运行的时候被调用，被装饰的声明作为参数会自动传入。要注意装饰器要紧挨要装饰的内容的前面，而且所装饰器不能用在声明文件（ `d.ts` ）中，和任何外部上下文中。比如下面的这个函数，就可以作为装饰器使用
+
+``` ts
+function setProp(target){ 
+  //...
+}
+@setProp;
+
+```
+
+先定义一个函数，然后这个函数有一个参数，就是要装饰的目标，装饰的作用不同，这个 `target` 代表的东西也不同。定义了这个函数之后，它就可以作为装饰器，使用 `@` 函数名的形式，写在装饰的内容前面
+
+### 装饰器工厂
+
+装饰器工厂也是一个函数，它的返回值是一个函数，返回的函数作为装饰器的调用函数。如果使用装饰器工厂，那么在使用的时候就要加上函数调用。
+
+``` ts
+function setProp(){ 
+  return function(target){
+    // ...
+  }
+}
+@setProp();
+
+```
+
+### 装饰器组合
+
+装饰器可以组合，也就是对一个目标，引用多个装饰器
+
+``` ts
+// 可以同一行
+@setName @ setAge target
+// 可以换行
+@setName
+@setAge
+target
+```
+
+装饰器的执行顺序，从上到下依次执行，但是只是返回函数但不调用函数，
+装饰器函数从下到上依次执行，也就是执行工厂函数返回的函数
+
+``` ts
+function setName(){
+  console.log("get setName")
+  return function (target){
+    console.log("setName)
+  }
+}
+
+function setAge(){
+  console.log("get setAge")
+  return function (target){
+    console.log("setAge)
+  }
+}
+
+@setName()
+@setAge()
+
+class Test(){}
+// 打印出来的内容有
+/**
+ "get setName"
+ "setName"
+ "get setAge"
+ "setAge"
+*/
+```
+
+可以看到，多个装饰器，会先执行装饰器工厂函数获取所有装饰器，然后再从后往前执行装饰器的逻辑
+
+### 装饰器求值
+
+类的定义中不同声明上的装饰器将按以下的规定顺序引用：
+
+参数装饰器，方法装饰器，访问装饰器或者属性装饰器应用到每个实例成员
+
+参数装饰器，方法装饰器，访问装饰器或者属性装饰器应用到每个静态成员
+
+参数装饰器应用到构造函数
+
+类装饰器应用到类
+
+#### 类装饰器
+
+类装饰器在类声明之前声明，要记得装饰器要紧挨着想要修改的内容，类装饰器应用于类的声明，类装饰器表达式会在运行时当做函数被调用，它由有一一个参数，也就是装饰的这个类
+
+``` ts
+
+let sign = null;
+function setName(name: string) {
+  return (target: new (...args: any[]) => any): void => {
+    sign = target;
+    console.log(target.name)
+  };
+}
+
+@setName("laibh.top") // Info
+class Info {
+  constructor() { }
+}
+
+sign === Info; // true
+sign === Info.prototype.constructor; // true
+```
+
+可以看到，我们在装饰器里打印出类的 name 属性值，也就是类的名字，我们没有使用 Info 创建实例，控制台也打印了"Info"，因为装饰器作用与装饰的目标声明时。而且我们将装饰器里获取的参数 target 赋值给 sign，最后判断 sign 和定义的类 Info 是不是相等，如果相等说明它们是同一个对象，结果是 true。而且类 Info 的原型对象的 constructor 属性指向的其实就是 Info 本身。
+
+通过修饰器，可以修改类的原型对象和构造函数
+
+``` ts
+function addName(constructor: new () => any) {
+  constructor.prototype.name = "laibh.top";
+}
+@addName
+class A { }
+const x = new A();
+x.name; // 类型“number”上不存在属性“name”
+```
+
+通过 addName 修饰符可以在类 A 的原型对象上添加一个 name 属性，这样使用 A 创建的实例，应该可以继承这个 name 属性，访问实例对象的 name 属性应该返回"lison"，但是这里报错，是因为我们定义的类 A 并没有定义属性 name，所以我们可以定义一个同名接口，通过声明合并解决这个问题：
+
+``` ts
+@addName
+class A {}
+interface A {
+  name: string;
+}
+const a = new A();
+console.log(a.name); // "laibh.top"
+```
+
+如果装饰器返回一个值，那么会使用这个返回的值替换被修饰的类的声明，所以我们可以使用此特性修改来的实现。要注意的是，需要自己处理原有的原型链。可以通过装饰器，来覆盖类里的一些操作。
+
+``` ts
+function classDecorator<T extends new (...args: any[]) => {}>(target: T) {
+  return class extends target {
+    public newProperty = "new property";
+    public hello = "override";
+  };
+}
+
+@classDecorator
+class Greeter {
+  public property = "property";
+  public hello: string;
+  constructor(m: string) {
+    this.hello = m;
+  }
+};
+
+console.log(new Greeter("world"));
+/*
+{
+  hello:"override"
+  newProperty:"new property"
+  property:"property"
+}
+*/
+```
+
+我们定义一个装饰器，它返回一个类，这个类继承要修饰的类，所以最后创建的实例不仅包含原 Greeter 类中定义的实例属性，还包含装饰器中定义的实例属性。我们在装饰器中给实例添加的属性，设置的属性值会覆盖被修饰的类里定义的实例属性，所以我们创建实例的时候虽然传入了字符串，但是 `hello` 还是装饰器里面设置的 `override` 。
+
+``` ts
+function classDecorator(target: any) {
+  return class{
+    public newProperty = "new property";
+    public hello = "override";
+  };
+}
+
+@classDecorator
+class Greeter {
+  public property = "property";
+  public hello: string;
+  constructor(m: string) {
+    this.hello = m;
+  }
+};
+
+console.log(new Greeter("world"));
+/*
+{
+  hello:"override"
+  newProperty:"new property"
+}
+*/
+```
+
+上面的例子中去掉了类的继承，最后打印出来实例只包含装饰器中返回的类的定义的实例属性，被装饰的类的定义被替换了。如果我们的类装饰器有返回值，但返回的不是一个构造函数（类），那就报错了
+
+#### 方法装饰器
+
+方法装饰器用来处理方法，它可以处理方法的属性描述符，可以处理方法定义。方法装饰器在运行时也是被当做函数调用，含有3个参数：
+
+装饰静态成员时是类的构造函数，装饰实例成员时是类的原型对象；成员的名字；成员属性描述符。
+
+JS 中的属性描述符。对象可以设置属性，如果属性值是函数，那么这个函数称为方法，每一个属性和方法在定义的时候，都伴随着三个属性描述符 `configurable` 、 `writable` 和 `enumerable` ，分别用来描述每个属性的可配置性、可写性、可枚举性。这三个描述符使用 `Object.defineProperty` 来设置。
+
+``` javascript
+  const obj = {};
+  Object.defineProperty(obj, "name", {
+      value: "laibh.top",
+      writable: false,
+      configurable: true,
+      enumerable: true
+  })
+  obj; // {name:"laibh.top"}
+  obj.name = "laibh";
+  obj; // {name:"laibh.top"}
+  for (let key in obj) {
+      console.log(key) // "name"
+  }
+
+  Object.defineProperty(obj, "name", {
+      enumerable: false
+  })
+  for (let key in obj) {
+      console.log(key) // 什么都没有打印
+  }
+
+  Object.defineProperty(obj, "name", {
+      writable: true
+  })
+  obj.name = "laibh"
+  obj; // {name:"laibh"}
+
+  Object.defineProperty(obj, "name", {
+      configurable: false
+  })
+
+  Object.defineProperty(obj, "name", {
+      writable: false
+  })
+  // error Cannot redefine property: name
+```
+
+通过这个例子，我们分别体验了这三个属性修饰符，还要一个字段是 `value` ，用来设置属性的值。首先当我们设置 `writable` 为 false, 通过给 `obj.name` 赋值没法修改它起初定义的属性值。
+
+普通的属性在 for in 等迭代器中可以遍历到，设置 `enumerable` 为 `false` ，即是不可枚举的，就遍历不到了。
+
+设置 `configurable` 为 `false` 后就无法通过 `Object.defineProperty` 修改该属性的三个描述符的值了，这是个不可逆的设置。
+
+``` ts
+function enumerable(bool: boolean) {
+  return (
+    target: any,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) => {
+    console.log(target); // {getAge:f,constructor:f}
+    descriptor.enumerable = bool;
+  };
+}
+
+class Infx {
+  constructor(public age: number) { }
+  @enumerable(false)
+  public getAge() {
+    return this.age;
+  }
+}
+
+const infx = new Infx(18);
+infx; // {age:18}
+
+for (const propertyName in infx) {
+  console.log(propertyName); // age
+}
+```
+
+上面的例子中通过我们定义了一个方法装饰器工厂，装饰器工厂返回一个装饰器；因为这个装饰器修饰在下面使用的时候修饰的是实例（或者实例继承的）的方法，所以装饰器的第一个参数是类的原型对象；第二个参数是这个方法名；第三个参数是这个属性的属性描述符的对象，可以直接通过设置这个对象上包含的属性描述符的值，来控制这个属性的行为。我们这里定义的这个方法装饰器，通过传入装饰器工厂的一个布尔值，来设置这个装饰器修饰方法的可枚举性。如果去掉 `@enumerable(false)` ，那么最后 `for in` 循环打印的结果，会既有 `age` 又有 `getAge` 
+
+如果方法装饰器返回一个值，那么会用这个值作为方法的属性描述符对象
+
+``` ts
+  function enumerable(bool: boolean): any {
+    return (
+      target: any,
+      propertyName: string,
+      descriptor: PropertyDescriptor,
+    ) => {
+      return {
+        value() {
+          return "not age";
+        },
+        enumerable: bool,
+      };
+    };
+  }
+
+  class Info {
+    constructor(public age: number) {}
+    @enumerable(false)
+    public getAge() {
+      return this.age;
+    }
+  }
+
+  const info = new Info();
+  info.getAge(); // "not age"
+```
+
+在方法装饰器中返回一个对象，对象中包含 `value` 来修改方法， `enumerable` 用来设置可枚举性。我们可以看到最后打印出来的结果是 `info.getAge()` 为 `not age` 。说明我们成功使用 `function(){return "not age}` 替换了被装饰的方法 `getAge()` 
+
+#### 访问器装饰器
+
+访问器指的是 `set` 和 `get` 方法，一个是设置属性值触发的，一个是获取属性值触发的。TS 不允许同时装饰一个成员的 `get` 和 `set` 访问器，只需要这个成员 `set/get` 访问器中定义在前面的一个即可。
+
+访问器装饰器也有三个参数，和方法装饰器一样。
+
+``` ts
+function enumerable(bool: boolean) {
+  return function(
+    target: any,
+    propertyName: string,
+    descriptor: PropertyDescriptor
+  ) {
+    descriptor.enumerable = bool;
+  };
+}
+class Info {
+  private _name: string;
+  constructor(name: string) {
+    this._name = name;
+  }
+  @enumerable(false)
+  get name() {
+    return this._name;
+  }
+  @enumerable(false) // error 不能向多个同名的 get/set 访问器应用修饰器
+  set name(name) {
+    this._name = name;
+  }
+}
+```
+
+经过 `enumerable` 访问器装饰器的处理后， `name` 属性变成了不可枚举的属性。同样的，如果访问装饰器有返回值，这个值会被作为属性的属性描述符。
+
+#### 属性装饰器
+
+属性装饰器声明在属性声明之前，它有两个参数，和方法装饰器齐纳两个参数是一样的。属性装饰器没有办法操作属性的属性描述符，只能用来判断某各类中是否声明了某个名字的属性
+
+``` ts
+function printPropertyName(target: any, propertyName: string) {
+  console.log(propertyName);
+}
+
+class Info {
+  @printPropertyName
+  public name: string | undefined;
+  @printPropertyName
+  public age: number | undefined;
+}
+```
+
+#### 参数装饰器
+
+参数装饰器有三个参数，前两个和方法装饰一样
+
+装饰静态成员时是类的构造函数，装饰实例成员的时候是类的原型对象；成员的名字；参数在函数参数列表中索引。参数装饰器的返回值会被忽略
+
+``` ts
+function required(target: any, propertyName: string, index: number) {
+  console.log( `修饰的是 ${propertyName}的第${index + 1}个参数` );
+}
+
+class Info {
+  public name: string = "laibh.top";
+  public age: number = 18;
+  public getInfo(prefix: string, @required infoType: string): any {
+    return prefix + " " + this[infoType];
+  }
+}
+
+interface Info {
+  [key: string]: string | number | Function;
+}
+
+const info = new Info();
+
+info.getInfo("hihi", "age"); // 修饰的是 getInfo 的第二个参数
+```
+
+## 使用模块封装代码
+
+在 TS1.5 之前有内部模块和外部模块的概念，从1.5版本开始，内部模块称为命名空间，外部模块称为模块。TS 的模块系统是遵循 ES6 标准的。
+
+TS 的模块除了遵循 ES6 标准的模块语法外，还有一些特定语法，用于类型系统兼容多个模块格式。
+
+### export 
+
+TS 中，使用 `export` 导出声明，而且能够导出的不仅有变量、函数、类，还包括 TS 特有的类型别名和接口
+
+``` ts
+// funcInterface.ts
+export interface Func{
+  (arg:number):string
+}
+export class C{
+  constructor(){}
+}
+class B{}
+export { B }
+export { B as ClassB }
+```
+
+可以使用 `export` 导出一个声明，也可以先声明一个类或者其他内容，然后使用 `export{}` 的形式导出，也可以使用 `as` 来为导出的接口换个名字再导出一次。也可以像 ES6 模块那样重新导出一个模块，也就是 `export` 一个引入内容，也可以重新导出部分内容，也可以重命名重新导出
+
+``` ts
+// main.ts
+export * from "./moduleB";
+
+// main.ts
+export {name} from "./moduleB";
+
+// main.ts
+export {name as nameProp} from "./moduleB";
+```
+
+### import
+
+导出的模块的引入，
+
+``` ts
+// main.ts
+import {name} from "./moduleB";
+import * as info from "./moduleB";
+import {name as nameProp} from "./moduleB";
+```
+
+直接模块名或者文件路径，进行有副作用的导入
+
+``` ts
+import "./set-title.ts"
+```
+
+### export default
+
+默认导出
+
+``` ts
+// moduleB.ts
+
+export default "laibh.top"
+
+// main.ts
+
+import name from "./moduleB.ts"
+name; // "laibh.top"
+```
+
+### export = 和 import = require()
+
+TS 可以将代码编译为 `CommonJS` 、 `AMD` 或其他模块系统代码，同时会生成对应的声明文件。我们知道 `CommonJS` 、 `AMD` 这两种模块系统语法是不兼容的，所以 TS 为了兼容这两种语法，使得我们编译后的声明文件同时支持这两种模块系统，增加了 `export =` 和 `import xx = require()` 这两个语句
+
+当我们想要导出一个模块时，可以使用 `export =` 来导出：
+
+``` ts
+// moduleC.ts
+class C{}
+export = C;
+```
+
+然后使用这个形式导出的模块，必须使用 `import xx = require()` 来引入
+
+``` ts
+// main.ts
+import ClassC = require("./moduleC");
+const c = new ClassC();
+```
+
+## 使用命名空间封装代码
+
+命名空间在 1.5 之前的版本中，是叫做“内部模块”。在 1.5 版本之前，ES6 模块还没正式成为标准，所以 TS 对于模块的实现，是将模块分为“内部模块”和“外部模块”两种。内部模块使用module来定义，而外部模块使用export来指定哪个内容对外部可见。
+
+1.5 版本开始，使用“命名空间”代替“内部模块”说法，并且使用 namespace 代替原有的 module关键字，而“外部 模块”则改为“模块”。
+
+命名空间的作用和使用场景和模块是有区别的，当我们在程序内部用于防止全局污染，想把相关的内容都放在一起的时候，使用命名空间。当我们封装了一个工具或者库，要适用于模块系统中引入使用时，适合使用模块。
+
+### 定义与使用
+
+命名空间的定义实际相当于定义了一个大的对象，里面可以定义变量、接口、类、方法等等，但是如果不使用 `export` 关键字指定此内容要对外可见的话，外部是没法访问到的。把所有涉及到的内容验证都放在一起，文件名叫做 `validation.ts` 
+
+``` ts
+namespace Validation {
+  const isLetterReg = /^[A-Za-z]+$/;
+  export const isNumberReg = /^[0-9]+$/;
+  export const checkLetter = (text: any) => {
+    return isLetterReg.test(text)
+  }
+}
+
+```
+
+我们创建了一个命名空间叫做 Validation，它里面定义了三个内容，两个正则表达式，但是区别在于 isLetterReg 没有使用 export 修饰，而 isNumberReg 使用了 export 修饰。最后一个函数，也是用了 export 修饰。
+
+命名空间在引入的时候，如果是使用 tsc 命令行编译文件，比如是在 `index.ts` 文件使用这个命名空间，先直接像下面这样写
+
+``` ts
+/// <reference path="validation.ts"/>
+let isLetter = Validation.checkLetter("sdfsd");
+const reg = Validation.isNumberReg;
+console.log(isLetter);
+console.log(reg);
+```
+
+命名空间如果不是使用 webpack 等工具编译，而是使用 tsc 编译，那只需要在使用外部命名空间的地方使用 `///` 三斜线开头来引用, 然后在 path 属性指定相对于当前文件，这个命名空间文件的路径。然后编译时，需要指定一个参数 outFile，这个参数来指定输出的文件名：
+
+``` shell
+tsc --outFile src/index.js src/index.ts
+```
+
+使用 outFile 只支持amd和system两种模块标准，所以需要在tsconfig.json里，设置 module 编译选项。
+
+``` javascript
+var Validation;
+(function(Validation) {
+    var isLetterReg = /^[A-Za-z]+$/;
+    Validation.isNumberReg = /^[0-9]+$/;
+    Validation.checkLetter = function(text) {
+        return isLetterReg.test(text);
+    };
+})(Validation || (Validation = {}));
+/// <reference path="namespace.ts"/>
+var isLetter = Validation.checkLetter("sdfsd");
+var reg = Validation.isNumberReg;
+console.log(isLetter);
+console.log(reg);
+```
+
+可以看到，编译后的 JS 文件将命名空间定义的文件 Validation.ts 文件的内容和 index.ts 的内容合并到了最后输出的文件。
+
+如果我们要在 webpack 等工具中开发项目，并时时运行，如果只通过 `/// <reference path=“Validation.ts”/>` 来引入命名空间，你会发现运行起来之后，浏览器控制台会报 Validation is not defined 的错误。所以如果是要在项目中时时使用，需要使用 export 将命名空间导出，其实就是作为模块导出，然后在 index.ts 中引入，先来看 Validation.ts 文件：
+
+``` ts
+export namespace Validation {
+  const isLetterReg = /^[A-Za-z]+$/;
+  export const isNumberReg = /^[0-9]+$/;
+  export const checkLetter = (text: any) => {
+    return isLetterReg.test(text);
+  };
+}
+// 然后在 index.ts 文件中引入并使用：
+
+import { Validation } from "./Validation.ts";
+let isLetter = Validation.checkLetter("sdfsd");
+const reg = Validation.isNumberReg;
+console.log(isLetter); // true
+console.log(reg); // /^[0-9]+$/
+
+```
+
+命名空间本来就是防止变量污染，但是模块也能起到这个作用，而且使用模块还可以自己定义引入之后的名字。所以，并不建议导出一个命名空间，这种情况你应该是用模块。
+
+### 拆分为多个文件
+
+将同一个命名空间拆成多个文件分开维护，尽管分成了多个文件，但它们仍然是同一个命名空间。下面我们将 Validation.ts 拆开成 LetterValidation.ts 和 NumberValidation.ts：
+
+``` ts
+// LetterValidation.ts
+namespace Validation {
+  export const isLetterReg = /^[A-Za-z]+$/;
+  export const checkLetter = (text: any) => {
+    return isLetterReg.test(text);
+  };
+}
+
+// NumberValidation.ts
+namespace Validation {
+  export const isNumberReg = /^[0-9]+$/;
+  export const checkNumber = (text: any) => {
+    return isNumberReg.test(text);
+  };
+}
+
+// index.ts
+/// <reference path="./LetterValidation.js"/>
+/// <reference path="./NumberValidation.js"/>
+let isLetter = Validation.checkLetter("sdfsd");
+const reg = Validation.isNumberReg;
+console.log(isLetter); // true
+
+```
+
+使用命令行来编译一下：
+
+``` shell
+tsc --outFile src/index.js src/index.ts
+```
+
+输出的 index.js
+
+``` javascript
+var Validation;
+(function(Validation) {
+    Validation.isLetterReg = /^[A-Za-z]+$/;
+    Validation.checkLetter = function(text) {
+        return Validation.isLetterReg.test(text);
+    };
+})(Validation || (Validation = {}));
+var Validation;
+(function(Validation) {
+    Validation.isNumberReg = /^[0-9]+$/;
+    Validation.checkNumber = function(text) {
+        return Validation.isNumberReg.test(text);
+    };
+})(Validation || (Validation = {}));
+/// <reference path="./LetterValidation.ts"/>
+/// <reference path="./NumberValidation.ts"/>
+var isLetter = Validation.checkLetter("sdfsd");
+var reg = Validation.isNumberReg;
+console.log(isLetter); // true
+```
+
+可以看到，我们使用 reference 引入的两个命名空间都被编译在了一个文件，而且是按照引入的顺序编译的。我们先引入的是 LetterValidation，所以编译后的 js 文件中，LetterValidation 的内容在前面。而且看代码可以看出，两个验证器最后都合并到了一起，所以 Validation 对象有两个正则表达式，两个方法。
+
+### 别名
+
+使用 `import` 给常用的对象起一个别名。但是要注意，别名和类型别名不是一回事， `import` 也只是为了创建别名不是引入模块。
+
+``` ts
+namespace Shapes{
+  export namespace Polygons{
+    export class Triangle{}
+    export class Squaire{}
+  }
+}
+import polygons = Shapes.Polygons; // 使用 import 关键字给 Shapes.Polygons 取一个别名 polygons
+let sq = new polygons.Square();
+```
+
+## 声明合并
+
+声明合并是指TS 编辑器会将名字相同的多个声明合并为一个声明，合并后的声明同时拥有多个声明的特性。JS 中，使用 `var` 关键字定义变量时，定义相同名字的变量，后面的会覆盖前面的值。使用 `let` 定义变量和使用 `const` 定义常量时，不允许名字重复。TS 中，接口、命名空间是可以多次声明的，TS 会将多个同名声明合并为一个。
+
+``` ts
+interface Info{
+  name:string
+}
+interface Info{
+  age:number
+}
+let info:Info
+info = {
+  name:"laibh.top" // error 类型“{ name: string; }”中缺少属性“age”
+}
+info = {
+  name:"laibh.top",
+  age:18
+}
+```
+
+可以看到 info 的定义要求同时包含 age 和 name，声明合并了
+
+TS 的所有声明概括起来，会创建三个实体之一：命名空间、类型和值
+
+命名空间的创建实际是创建一个对象，对象的属性是在命名空间里 `export` 导出的内容
+
+类型的声明是创建一个类型并赋给一个名字
+
+值的声明就是创建一个在 JS 中可以使用的值
+
+| 声明类型            | 创建了命名空间 | 创建了类型 | 创建了值 |
+| ------------------- | -------------- | ---------- | -------- |
+| Namespace           | √              |            | √        |
+| Class               |                | √          | √        |
+| Enum                |                | √          | √        |
+| interface           |                | √          |          |
+| Type Alias 类型别名 |                | √          |          |
+| Function            |                |            | √        |
+| Variable            |                |            | √        |
+
+命名空间创建了命名空间这种实体，Class/Enum 中 Class 即是实际的值也作为类使用，Enum 编译为 JS 后也是实际值。在一定条件下，Enum 的成员对象可以作为类型使用；Interface 和类型别名是纯粹的类型，而 Function 和 Variable 只是创建了 JS 中可用的值，不能作为类型使用，Variable 是变量，不是常量，常量是可以作为类型使用的。
+
+### 合并接口
+
+多个同名合并接口，定义的非函数的成员命名应该是不重复的，如果重复了，类型应该是相同的，否则会报错
+
+对于函数成员，每个同名含函数成员都会被当做这个函数的重载，且合并后的接口具有更高的优先级。
+
+``` ts
+interface Res{
+  getRes(input:string):number
+}
+interface Res{
+  getRes(input:number):string
+}
+const res:Res = {
+  getRes:(input:any):any=>{
+    if(typeof input === "string") return input.length
+    else return String(input)
+  }
+}
+res.getRes("123").length // error 类型“number”上不存在属性“length”
+```
+
+### 合并命名空间
+
+同名命名空间最后会将多个命名空间导出的内容进行合并
+
+``` ts
+namespace Validation{
+  export const checkNumber = ()=>{}
+}
+namespace Validation{
+  export const checkString = ()=>{}
+}
+
+// 相当于 
+
+namespace Validation{
+  export const checkNumber = ()=>{}
+  export const checkString = ()=>{}
+}
+```
+
+在命名空间里，有时我们并不是把所有内容都对外部可见，对于没有导出的内容，在其它同名命名空间内是无法访问的：
+
+``` ts
+namespace Validation {
+    const numberReg = /^[0-9]+$/
+    export const stringReg = /^[A-Za-z]+$/
+    export const checkString = () => {}
+}
+namespace Validation {
+    export const checkNumber = (value: any) => {
+        return numberReg.test(value) // error 找不到名称“numberReg”
+    }
+}
+// 上面定义的两个命名空间，numberReg没有使用export导出，所以在第二个同名命名空间内是无法使用的，如果给 const numberReg 前面加上 export，就可以在第二个命名空间使用了。
+```
+
+### 不同类型合并
+
+命名空间分别和类、函数、枚举都可以合并
+
+#### 命名空间和类
+
+要求同名的类和命名空间在定义的时候，类必须命名在命名空间前面，最后合并之后的效果，一个包含一些以命名空间导出内容为静态属性的类
+
+``` ts
+class Validation {
+    checkType() { }
+}
+namespace Validation {
+    export const numberReg = /^[0-9]+$/
+    export const stringReg = /^[A-Za-z]+$/
+    export const checkString = () => { }
+}
+namespace Validation {
+    export const checkNumber = (value: any) => {
+        return numberReg.test(value)
+    }
+}
+console.log(Validation.prototype) // { checkType: fun () {} }
+console.log(Validation.prototype.constructor) 
+/**
+{
+    checkNumber: ...
+    checkString: ...
+    numberReg: ...
+    stringReg: ...
+}
+*
+```
+
+#### 命名空间和函数
+
+JS 中，函数也是对象，可以给函数设置属性。TS 中可以通过声明合并实现。函数的定义要在同名命名空间前面
+
+``` ts
+function countUp(){
+  countUp.count++
+}
+namespace countUp{
+  export let count = 0;
+}
+countUp()
+countUp()
+countUp.count // 2;
+```
+
+#### 命名空间和枚举
+
+通过命名空间和枚举的合并，为枚举类型扩展内容，没有顺序要求
+
+``` ts
+enum Colors{
+  red,
+  green,
+  blue
+}
+namespace Colors{
+  export const yellow = 3;
+}
+
+Colors;
+/*
+{
+    0: "red",
+    1: "green",
+    2: "blue",
+    red: 0,
+    green: 1,
+    blue: 2,
+    yellow: 3 
+}
+*/
+```
+
+通过打印结果你可以发现，虽然我们使用命名空间增加了枚举的成员，但是最后输出的值只有key到index的映射，没有index到key的映射。
+
