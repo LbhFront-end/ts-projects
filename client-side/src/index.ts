@@ -1,13 +1,15 @@
+// tslint:disable max-classes-per-file
+
 let a: number = 123;
 
 const h1 = document.createElement("h1");
 h1.innerHTML = "Hello,I am Lison";
 document.body.appendChild(h1);
 
-let tuple: [string, number, boolean];
-tuple = ["a", 2, false];
+let tuple1: [string, number, boolean];
+tuple1 = ["a", 2, false];
 
-interface Tuple extends Array<number | string> {
+interface Tuple1 extends Array<number | string> {
   0: string;
   1: number;
 }
@@ -196,10 +198,10 @@ let counter = new Counter(10);
 //   }
 // }
 
-type ObjectDescriptor<D, M> = {
+interface ObjectDescriptor<D, M> {
   data?: D;
   methods?: M & ThisType<D & M>;
-};
+}
 
 function makeObject<D, M>(desc: ObjectDescriptor<D, M>): D & M {
   const data: object = desc.data || {};
@@ -228,4 +230,61 @@ const go: Go = {
   address: "foshan",
   age: 18,
   name: "laibh",
+};
+
+function pick<T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> {
+  const res = {} as Pick<T, K>;
+  keys.forEach((key) => res[key] = obj[key]);
+  return res;
 }
+
+interface Proxy<T> {
+  get(): T;
+  set(value: T): void;
+}
+
+type Proxify<T> = { [P in keyof T]: Proxy<T[P]> };
+function proxify<T>(obj: T): Proxify<T> {
+
+}
+
+function unproxify<T>(t: Proxify<T>): T {
+  const result = {} as T;
+
+}
+interface Info1 {
+  name: string;
+  age: number;
+}
+
+type RemoveModifier<T> = { readonly [P in keyof T]-?: T[P] };
+
+const stringIndex = "a";
+const numberIndex = 1;
+const symbolIndex = Symbol();
+
+interface Obj {
+  [stringIndex]: string;
+  [numberIndex]: number;
+  [symbolIndex]: symbol;
+}
+
+type keys = keyof Obj;
+
+type MapToPromise<T> = {
+  [K in keyof T]: Promise<T[K]>
+};
+
+type Tuple = [number, string, boolean];
+type promiseTuple = MapToPromise<Tuple>;
+
+let tuple: promiseTuple = [
+  new Promise((resolve, reject) => resolve(1)),
+  new Promise((resolve, reject) => resolve("a")),
+  new Promise((resolve, reject) => resolve(false)),
+];
+
+type Type<T> = T extends any[] ? T[number] : T;
+type test1 = Type<string[]>;
+type test2 = Type<string>;
+
