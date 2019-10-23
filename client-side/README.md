@@ -2619,5 +2619,282 @@ loginReq({username:"laibh.top",password:"1234"}).then(res=>{
     console.log(role)
   })
 })
-````
+```
+
+## 书写声明文件
+
+有两种常见的模块标准，不同的模块在实现方式上是不同的。为已有的第三方JS库编写声明文件以便在 TS 中更好地使用类型系统。首先要知道我们使用的JS库被编译成了什么类型
+
+### 全局库
+
+不需要我们引入变量，只需要将库引入即可使用的库叫做全局库。例如 `Jquery` 。UMD 模块既可以作为模块使用，又可以作为全局库使用的模块，在判断一个库的时候，如果它可以像全局使用，首先要明确它是不是UMD模块，如果不是，就可能是一个单纯的全局库。
+
+通过查看库的源码可以判断它的类型，一个全局库，通常会包含下面内容的一个或者多个：
+
+1. 顶级 `var` 语句或者 `function` 声明
+2. 一个或多个赋值给 `window.someName` 的赋值语句
+3. 判断 `document` 或 `window` 是否存在的判断逻辑
+
+因为顶级 `var` 或者 `function` 是直接在全局环境声明变量或者函数，不使用立即执行函数包裹会影响到全局，所以有这种一般是全局库；当出现 `window` 设置某个属性名 `someName` ，然后给这个属性赋值的语句的时候，是在给全局对象 `window` 赋值。引入这个库然后通过 `window.someName` 即可在全局任何地方访问到这个属性值；如果出现 `if` 语句或三元操作符这种判断 `document` 或者 `window` 是否存在的语句，也有可能是要给这两个全局对象添加内容，所以也有可能是全局库
+
+但是由于把一个全局库转变为 UMD 库也较为容易，所以现在全局库较少。
+
+全局库的代码：
+
+``` javascript
+// handle-title.js
+function setTitle(title) {
+    document && (document.title = title)
+}
+
+function getTitle() {
+    return (document && document.title) || "";
+}
+let documentTitle = getTitle();
+```
+
+上述这个库，声明了一个 `setTitle` 函数，接受一个参数，在函数内判断 `document` 是否存在，执行后面的逻辑。将 `title` 赋值给 `document.title` 。从而实现修改显示在浏览器标签的文字；一个 `getTitle` 函数，用于获取此时的 `title` 值，如果没有 `document` 对象，则返回空字符串；一个全局变量 `documentTitle` 来初始化记录此时的 `title` 
+
+为这个 `handle-title.js` 全局库编写一个声明文件 `handle-title.d.ts` ，官方为每一种库类型提供了响应的声明文件模块，全局库的模块是 `global.d.ts` ，首先看一下模块中的内容
+
+``` ts
+// 如果库有一个全局暴露函数，可以传入不同类型的参数，返回不同的值，所以可以为它定义函数重载
+declare function myLib(a:string):string;
+declare function myLib(a:number):number;
+
+// 如果想让这个库作为一个类型，可以定义一个接口
+declare interface myLib{
+  name:string;
+  length:number;
+  extras?:string[];
+}
+// 如果这个库有一些需要在全局暴露的属性，可以定义这个空间，将值、接口和类型别名等定义在这里
+// 这样，在下面命名空间中没有列出的内容，通过 myLib.xxx 访问时在编译阶段会报错，但是运行时是可以访问的，只要这个 JS库定义了
+
+declare namespace myLib{
+  let timeout:number; // 通过myLib.timeout 访问，也可以修改，myLib.timeout=123
+  const version:string;// 通过myLib.version 访问，但不能修改，因为 const 声明的
+  class Cat{
+    constructor(n:number);
+    readonly age:number;
+    purr():void;
+  }
+  interface CatSettings{
+    weight:number;
+    name:string;
+    tailLength?:number;
+  }  
+  type VetID = string |number;
+  function checkCat(c:Cat,s?:VetID);
+}
+```
+
+`handle-title.js` 可以直接在 `index.html` 文件里引入，如果不定义声明文件，我们直接在 `index.ts` 里面使用，会报错：
+
+``` javascript
+getTitle(); // error 找不到名称 "getTitle"
+documentTitle; // error 找不到名称 "documentTitle"
+```
+
+为 `handle-title.js` 库编写一个声明文件：
+
+``` ts
+// handle-title.ts
+declare function setTitle(title:number|string):void;
+declare function getTitle():string;
+
+declare let documentTitle:string;
+```
+
+在 `tsconfig.json` ，通过设置 `include` 让编译器自动引入 `./src/` 文件夹下所有的声明文件
+
+``` json
+{
+  "include":[
+    "./src/**/*.ts",
+    "./src/**/*.d.ts",
+  ]
+}
+```
+
+这样在 `src/types` 文件夹下里面的所有声明文件就会起作用了， `index.ts` 使用 `getTitle` 和 `documenTitle` 就没有问题了
+
+### 模块化库
+
+模块化库依赖模块解析器的库。判断一个库是模块化库，在模块库中一般会看到下面的情况之一：
+
+1. 无条件使用 `require` 或者 `defined` 
+2. 像 `import * as from 'b'` 或者 `export c` 这样的声明
+3. 赋值给 `exports.someName` 或者 `module.exports` 
+
+因为模块化库依赖模块解析器环境，在使用这种库的时候，就已经引入模块解析器的 `require` 或 `define` 等方法了，所以模块化库会直接调用这些方法来加载代码；库中包含 `import * as a from 'b'` ，这种就是 CommonJS 模块的导出语句了。极少会在模块化库中看到对 `window` 或者 `global` 的赋值，但也有一些库需要操作 `window` ；
+
+针对模块，官方有三个模板声明文件，分别是 `module.d.ts` 、 `module-class.d.ts` 、 `module-function.d.ts` 
+
+如果这个模块引入后，可以直接当做函数调用，那么可以参考 `module-function.ts` 
+
+如果模块引入后，可以直接作为类使用 new 关键字创建实例，可以参数 `module-class.d.ts` 文件
+
+如果模块不能被调用也不能被当做类，参考 `module.d.ts` 
+
+### UMD 库
+
+UMD 库将全局库和模块库的功能进行了结合，会先帕努单环境中有没有模块加载器的一些特定的方法。如果有说明是模块加载器环境，UMD 库就会使用模块的方式导出。如果没有检测到这些方法，则会将内容添加到全局环境。一般在 UMD 库中会看到这样的判断：
+
+``` javascript
+(function(root, factory) {
+    if (typeof define === "function" && define.amd) {
+        define(["libName"], factory)
+    } else if (typeof module === "object" && module.exports) {
+        module.exports = factory(require("libName"))
+    } else {
+        root.returnExports = factory(root.libName);
+    }
+})(this, function(b) {
+    // ...
+})
+```
+
+现在很多库 都是 UMD 库，比如 JQ、moment等，可以在 html 中直接通过 `script` 引入，也可以通过模块的形式引入。
+
+## 为不同类型库书写声明文件
+
+### 模块插件或者 UMD 插件
+
+一些模块和插件是支持插件机制的，比如我们常见的 Jq, 它的插件很多。为库书写声明文件的同时，为库的插件定义声明文件，可以参考官方模块 `module-plugin.d.ts` 
+
+### 全局插件
+
+全局插件往往会修改全局中的一些对象，在这些对象上添加或者修改属性方法：
+
+``` javascript
+// add-methods-to-string.js
+String.prototype.getFirstLetter = function() {
+    return this[0];
+}
+```
+
+这段代码在 String 构造函数的原型对象上添加了一个 `getFirstLetter` 方法，这个返回可以返回字符串的第一个字符。
+
+在 String 构造函数原型对象上添加一个方法，这个方法就会被 String 创建的实例继承，如果使用 `new String("laibh.top")` 创建一个实例 `name` ，那么这个 `name` 将是一个对象类型的值，它的属性是从0开始到 n 的数字，属性值对应字符串的第1个、第n个字符。而 `const name = "laibh.top"` 字面量的形式定义的 name, 其实是个字符串类型的值，字符串就不会继承构造函数的方法了，以为它不是对象，但事实是它可以调用 `getFirstLetter` 方法。因为它在调用方法的时候，会先将这个字符串包装成一个封装对象，在内部即使用 String构造函数，所以它依然可以调用原型对象上的方法。
+
+在 html文件里引入这个 js 文件后创建一个字符串，这个字符串可以调用 `getFirstLetter` 方法
+
+``` html
+<script type="text/javascript" src="./add-methods-to-string.js"></script>
+<script type="text/javascript">
+    var str = "laibh.top";
+    console.log(str.getFirstLetter())
+</script>
+```
+
+在 TS 中使用，就需要为这个创建声明文件，创建一个声明文件 `global-plugin.d.ts` 
+
+``` ts
+// global-plugin.d.ts
+interface String{
+  getFirstLetter():number
+}
+
+// index.ts
+const str = "laibh.top"
+str.getFirstLetter(); //"L"
+```
+
+遇到这种情形可以参考官方 `global-plugin.d.ts` 模板来书写声明文件
+
+### 修改全局的模块
+
+一些影响全局的全局模块，这些模块除了导出一些东西，还会直接修改全局的一些对象，使用上面的例子，这次使用引入模块的形式来引入：
+
+``` ts
+// add-methods-to-string 模块
+String.prototype.getFirstLetter = function(){
+  return this[0];
+}
+
+// index.js
+require("add-methods-to-string");
+const name = "laibh.top"
+name.getFirstLetter(); // "L"
+```
+
+`global-modifying-module.d.ts` 
+
+``` ts
+declare global{
+  interface String{
+    getFirstLetter():number
+  }
+}
+export {};
+```
+
+声明文件没有需要导出的东西，这里在末尾加上 `export {}` ，TS编译器把这个声明文件当做一个模块声明。当加了这个声明文件后，就可以在TS 中引入这个模块，再在 TS 中调用字符串的 `getFirstLetter` 方法就不会报错了。这类全局模块，可以参考官方的 `global-modifying-module.d.ts` 模板
+
+### 使用依赖
+
+库会依赖其他库，所以可以在定义库声明文件的时候，声明对其他库的依赖，从而加载其他库的内容。如果是依赖全局库，可以使用 `///<reference types="UMDModuleName"/>` 三斜线来指定加载某个全局库：
+
+``` ts
+/// <reference types="globalLib"/>
+function func():glbalLib.someName;
+
+// 如果依赖的是模块库，是可以使用 import 语句
+import * as moment from "moment";
+function func():moment;
+// 因为有些库是没有默认 `default` 输出的，在使用 import xx from "xx"语句引入一个库报错时，可以使用 import * as xx from "xx"的形式引入
+// 如果是全局依赖某个 UMD 模块，也可以使用 三斜杆的方法来指定对某个 UMD 模块的依赖
+// globals.d.ts
+/// <reference types="moment" />
+function getMoment():moment;
+
+// 如果模块或一个 UMD 库依赖一个 UMD 库，使用 import * as 语句引入模块：
+// module.d.ts
+import * as moment from "moment";
+export default function(m:typeof moment):void;
+```
+
+还有一些注意的是，防止命名冲突，在全局声明时，在全局范围定义大量类型，有时候会导致命名冲突，所以建议相关的定义放在命名空间内。
+
+ES6插件的影响，ES6模块标准中，导出的模块不允许修改的，但是在 CommonJS 和其他一些加载器里面是允许的，所以要使用 ES6模块的话要注意
+
+ES6模块调用，在使用一些库的时候，引入的模块可以作为函数直接调用，ES6的模块顶层对象是一个对象，它不能作为函数调用，比如使用 `export` 导出几个内容
+
+``` ts
+// moduleB.js
+export const age = 10;
+export let name = "laibh.top";
+
+//  main.js
+import info from "./moduleB.js"
+info.name; // "laibh.top"
+
+// index.js
+import {name,age} from "./moduleB.js"
+name; // "laibh.top"
+```
+
+如果想要导出一个直接可以调用的函数，又要使用 ES6模块，则可以使用 `export default` 导出一个函数
+
+### 快捷外部模块声明
+
+使用一个模块不想花时间精力为这个模块写声明，TS 在2.0版本支持快捷外部声明。比如使用 `moment` 模块，就可以在 `typings` 创建一个 `momemt` 文件夹，并在这个文件夹创建一个 `index.d.ts` 文件，内容：
+
+``` ts
+// index.d.ts
+declare module "moment";
+```
+
+就可以正常使用 `moment` 模块了
+
+官方提供了各种类型的书写声明文件
+[global-modifying-module.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/global-modifying-module-d-ts.html)：适合修改全局的模块。
+[global-plugin.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/global-plugin-d-ts.html)：适合全局插件。
+[global.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/global-d-ts.html)：适合全局库。
+[module-class.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/module-class-d-ts.html)：适合引入后可以直接当做类使用new关键字创建实例的模块。
+[module-function.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/module-function-d-ts.html)：适合引入后可以直接当做函数的模块，
+[module-plugin.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/module-plugin-d-ts.html)：适合模块插件或UMD插件。
+[module.d.ts](https://www.tslang.cn/docs/handbook/declaration-files/templates/module-d-ts.html)：适合引入后既不能当做类直接使用，也不能直接当做函数调用的模块。
+
 
