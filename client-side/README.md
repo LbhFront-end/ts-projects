@@ -2407,3 +2407,217 @@ Colors;
 
 通过打印结果你可以发现，虽然我们使用命名空间增加了枚举的成员，但是最后输出的值只有key到index的映射，没有index到key的映射。
 
+## 混入、兼顾值和类型的合并操作
+
+混入即把两个对象或者类的内容，混合起来，从而实现一些功能的复用。JS 中实现简单的混入
+
+``` javascript
+class A {
+    constructor() {}
+    funcA() {
+        console.log("here");
+    }
+}
+class B {
+    constructor() {}
+    funcB() {}
+}
+const mixin = (target, from) => {
+    Object.getOwnPropertyName(from).forEach(key => {
+        target[key] = from[key]; //
+    })
+}
+mixin(B.prototype, A.prototype);
+const b = new B();
+b.funcA(); // here
+```
+
+`Object.getOwnPropertyNames` 方法获取一个对象自身的属性，这里的自身是除去继承的属性，获取到属性后将属性赋值给目标对象
+
+这是 JS 简单混入，TS 中除了值还有类型的概念，所以简单地将属性赋值到目标元素是不行的，还要处理类型定义
+
+``` ts
+class ClassAa{
+  isA:boolean;
+  funcA(){};
+}
+class ClassBb{
+  isB:boolean;
+  funcB(){};
+}
+// 定义一个类类型接口AB
+// 让类AB继承classAa和ClassBb 的类型，所以使用 implements 关键字，而不是 extends
+class AB implements ClassAa,ClassBb{
+  constructor(){}
+  isA: boolean = false;
+  isB: boolean = false;
+  funcA:()=>void;
+  funcB:()=>void;
+}
+function mixins(base:any,from:any[]){ // 直接传入类，而非原型对象，base是我们最后要汇总的类，from是个数组。是我们要混入的源类组成的数组
+  from.forEach(fromItem=>{
+    Object.getOwnPropertyName(fromItem.prototype).forEach(key=>{
+      base.prototype[key] = fromItem.prototype[key];
+    })
+  })
+}
+
+mixins(AB,[ClassAa,ClassBb]);
+const ab = new AB();
+ab;
+/*
+  isA:false,
+  isB:false,
+  __proto__:{
+    funcA:f()
+    funcB:f()
+    constructor:f
+  }
+*/
+```
+
+## Promise以及其语法糖 async/await
+
+TS 在1.6 版本支持了 `async` 函数。
+
+简单 ajax例子
+
+``` javascript
+ajax.post("/login", {
+    data: {
+        user_name: "laibh.top",
+        password: "xxxx"
+    },
+}, function(res) {
+    const {
+        user_id
+    } = res.data;
+    ajax.post("/user_roles", {
+        data: {
+            user_id,
+        }
+    }, function() {
+        const {
+            role
+        } = res.data;
+    })
+})
+```
+
+上面的例子，先调用登录的接口发送用户名，然后服务端进行校验后返回这个用户的一些信息，从中拿到用户id后获取它的角色用于权限控制。这个过程有先后顺序，先登录后获取角色。在过去使用回调函数，当然一些库也支持链式调用，ES6的Promise
+
+``` javascript
+const loginReq = ({
+    username,
+    password
+}) => {
+    return new Promise((resolve, reject) => {
+        ajax.post("/login", {
+                user_name: "laibh.top",
+                password: "xxxx",
+            },
+            res => {
+                resolve(res);
+            },
+            error => {
+                reject(error);
+            })
+    })
+}
+
+const getRoleReq = ({
+    userId,
+}) => {
+    return new Promise((resolve, reject) => {
+        ajax.post("/login", {
+                userId
+            },
+            res => {
+                resolve(res);
+            },
+            error => {
+                reject(error);
+            })
+    })
+}
+loginReq("/user_roles", {
+    username: "laibh.top",
+    password: "xxxx"
+}).then(res => {
+    getRoleReq({
+        userid: res.data.userid
+    }).then(res => {
+        console.log(res.data.role)
+    })
+})
+```
+
+ES7 中增加了 async 和 await 的规范，其实是 Promise的语法糖。
+
+``` ts
+interface Res{
+  data:{
+    [key:string]:any,
+  }
+}
+
+namespace axios{
+  export function post(url:string,config:object):Promise<Res>{
+    return new Promise((resolve,reject)=>{
+      setTimeout(()=>{
+        let res:Res = [data:{}];
+        if(url === "login") res.data.userid = 111;
+        else res.data.role = "admin"
+        resolve(res)
+      },1000)
+    })
+  }
+}
+
+interface Info{
+  username:string;
+  password:string;
+}
+
+async function loginReq({username,password}:Info){
+  try{
+    const res = await axios.post("/login",{
+      data:{
+        username,
+        password
+      }
+    })
+    return res
+  }.catch(error){
+    throw new Error(error);
+  }
+}
+
+async function getRoleReq(userid:number){
+  try{
+    const res = await axios.post("/user_roles",{
+      data:{
+        userid
+      }
+    })
+    return res
+  }.catch(error){
+    throw new Error(error);
+  }
+}
+
+loginReq({username:"laibh.top",password:"1234"}).then(res=>{
+  const { data:{
+    userid
+  } } = res;
+  getRoleReq(userid).then(res=>{
+    const {
+      data:{
+        role
+      }
+    }
+    console.log(role)
+  })
+})
+````
+
